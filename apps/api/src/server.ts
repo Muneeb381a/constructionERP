@@ -51,3 +51,9 @@ app.use("/api/expenses", expensesRoutes);
 app.use("/api/audit-log", auditRoutes);
 
 app.use(errorHandler);
+
+// Named export for src/index.ts (traditional long-running server) and local scripts.
+// Default export is what Vercel's zero-config Express detection requires — it looks for
+// src/server.ts specifically and needs *this* file's default export, not a wrapper
+// elsewhere; see https://vercel.com/docs/frameworks/backend/express.
+export default app;
