@@ -13,4 +13,7 @@ export const env = {
   jwtRefreshSecret: required("JWT_REFRESH_SECRET"),
   accessTokenTtl: process.env.ACCESS_TOKEN_TTL ?? "15m",
   refreshTokenTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? 30),
+  // Only needed when the nightly reconciliation runs via Vercel Cron instead of the
+  // in-process node-cron job (which doesn't survive on serverless) — see /api/admin/reconcile-all.
+  cronSecret: process.env.CRON_SECRET,
 };

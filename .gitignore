@@ -4,6 +4,9 @@ build/
 *.log
 .DS_Store
 
+# Vercel CLI local project linkage (project/org IDs) — machine-local, not shared config
+.vercel
+
 # Environment / secrets — never commit real credentials, only .env.example templates
 .env
 .env.*
