@@ -1,0 +1,60 @@
+{
+  "app": {
+    "name": "کنسٹرکشن ای آر پی"
+  },
+  "nav": {
+    "groupOverview": "جائزہ",
+    "groupTransactions": "لین دین",
+    "groupCatalog": "کیٹلاگ",
+    "groupOperations": "آپریشنز",
+    "dashboard": "ڈیش بورڈ",
+    "reports": "رپورٹس",
+    "auditLog": "آڈٹ لاگ",
+    "newSale": "نئی فروخت",
+    "newPurchase": "نئی خریداری",
+    "invoices": "انوائسز",
+    "quotations": "کوٹیشنز",
+    "products": "مصنوعات",
+    "parties": "فریقین",
+    "stock": "اسٹاک",
+    "cashBook": "کیش بک",
+    "expenses": "اخراجات",
+    "employees": "ملازمین",
+    "logout": "لاگ آؤٹ"
+  },
+  "auth": {
+    "login": "لاگ ان",
+    "email": "ای میل",
+    "password": "پاس ورڈ",
+    "loggingIn": "لاگ ان ہو رہا ہے…",
+    "newBusiness": "نیا کاروبار؟",
+    "register": "رجسٹر کریں",
+    "registerTitle": "اپنا کاروبار رجسٹر کریں",
+    "businessName": "کاروبار کا نام",
+    "yourName": "آپ کا نام",
+    "creatingAccount": "اکاؤنٹ بن رہا ہے…",
+    "createAccount": "اکاؤنٹ بنائیں",
+    "alreadyHaveAccount": "پہلے سے اکاؤنٹ ہے؟"
+  },
+  "dashboard": {
+    "today": "آج",
+    "todaySales": "آج کی فروخت",
+    "todayPurchases": "آج کی خریداری",
+    "cashInHand": "نقد رقم",
+    "outstanding": "بقایا رقم",
+    "receivable": "وصولی",
+    "payable": "قابلِ ادائیگی",
+    "lowStock": "کم اسٹاک",
+    "noLowStock": "کوئی پروڈکٹ کم از کم اسٹاک سے نیچے نہیں۔",
+    "restricted": "ڈیش بورڈ صرف مالک، منیجر اور اکاؤنٹنٹ کے لیے دستیاب ہے۔",
+    "loading": "لوڈ ہو رہا ہے…",
+    "loadFailed": "ڈیش بورڈ لوڈ نہیں ہو سکا۔",
+    "invoiceCount_one": "{{count}} انوائس",
+    "invoiceCount_other": "{{count}} انوائسز"
+  },
+  "common": {
+    "loading": "لوڈ ہو رہا ہے…",
+    "cancel": "منسوخ کریں",
+    "save": "محفوظ کریں"
+  }
+}

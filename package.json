@@ -1,0 +1,14 @@
+{
+  "name": "construction-erp",
+  "private": true,
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "db:generate": "pnpm --filter @construction-erp/api db:generate",
+    "db:migrate": "pnpm --filter @construction-erp/api db:migrate",
+    "db:push": "pnpm --filter @construction-erp/api db:push",
+    "db:studio": "pnpm --filter @construction-erp/api db:studio"
+  }
+}

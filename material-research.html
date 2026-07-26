@@ -1,0 +1,507 @@
+<title>Pakistan Building Materials — Category Reference</title>
+<meta name="description" content="Sariya, cement, bricks, sand, and TR girder: brands, grades, sizes, weights, and price bands for ERP category setup." />
+<style>
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171a;
+      --surface: #1b1f23;
+      --surface-2: #22262b;
+      --ink: #eef1ee;
+      --ink-muted: #99a29c;
+      --ink-faint: #6d766f;
+      --accent: #f0b429;
+      --accent-ink: #241a00;
+      --rule: #32373c;
+      --tick: #2a2e33;
+    }
+  }
+  :root {
+    --bg: #eef0ee;
+    --surface: #ffffff;
+    --surface-2: #e3e6e2;
+    --ink: #1a201d;
+    --ink-muted: #565f59;
+    --ink-faint: #838b85;
+    --accent: #d99a12;
+    --accent-ink: #3a2900;
+    --rule: #d3d7d1;
+    --tick: #dde1db;
+
+    --steel: #4d6a83;
+    --cement: #8a8471;
+    --brick: #a3462f;
+    --sand: #bf8a3a;
+    --girder: #5a636c;
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171a; --surface: #1b1f23; --surface-2: #22262b;
+    --ink: #eef1ee; --ink-muted: #99a29c; --ink-faint: #6d766f;
+    --accent: #f0b429; --accent-ink: #241a00; --rule: #32373c; --tick: #2a2e33;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef0ee; --surface: #ffffff; --surface-2: #e3e6e2;
+    --ink: #1a201d; --ink-muted: #565f59; --ink-faint: #838b85;
+    --accent: #d99a12; --accent-ink: #3a2900; --rule: #d3d7d1; --tick: #dde1db;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { text-wrap: balance; font-family: "Barlow Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  code, .mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .tickband {
+    height: 10px;
+    background-image: repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 12px);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .shell { display: flex; max-width: 1180px; margin: 0 auto; }
+
+  nav.rail {
+    position: sticky; top: 0; align-self: flex-start;
+    width: 190px; flex-shrink: 0;
+    padding: 28px 16px 28px 20px;
+    height: 100vh; overflow-y: auto;
+  }
+  nav.rail a {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--ink-muted); text-decoration: none;
+    font-size: 0.88rem; font-weight: 600;
+    padding: 7px 0;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    transition: color .15s, border-color .15s;
+  }
+  nav.rail a:hover { color: var(--ink); }
+  nav.rail a.active { color: var(--ink); border-left-color: var(--accent); }
+  nav.rail .swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  nav.rail .rail-title {
+    font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 14px 10px; font-weight: 700;
+  }
+
+  main { flex: 1; min-width: 0; padding: 28px 32px 90px; }
+
+  header.hero { padding: 6px 0 30px; border-bottom: 1px solid var(--rule); margin-bottom: 34px; }
+  header.hero .eyebrow {
+    font-size: 0.72rem; letter-spacing: 0.11em; text-transform: uppercase;
+    color: var(--accent-ink); background: var(--accent); display: inline-block;
+    padding: 3px 9px; border-radius: 3px; font-weight: 700; margin-bottom: 14px;
+  }
+  header.hero h1 { font-size: 2.6rem; font-weight: 700; margin: 0 0 10px; letter-spacing: 0.01em; }
+  header.hero p.lede { font-size: 1.02rem; color: var(--ink-muted); max-width: 62ch; line-height: 1.6; margin: 0 0 18px; }
+
+  .notice {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--surface-2); border-left: 3px solid var(--accent);
+    padding: 12px 16px; border-radius: 4px; font-size: 0.88rem; color: var(--ink-muted);
+    max-width: 68ch; line-height: 1.55;
+  }
+  .notice b { color: var(--ink); }
+
+  table.quicksetup { width: 100%; border-collapse: collapse; margin: 20px 0 6px; font-size: 0.88rem; }
+  table.quicksetup th {
+    text-align: left; font-size: 0.68rem; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 700; padding: 0 14px 8px 0; border-bottom: 1px solid var(--rule);
+  }
+  table.quicksetup td { padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  table.quicksetup tr:last-child td { border-bottom: none; }
+  .cat-tag { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; }
+  .cat-tag .swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+  section.category { margin-bottom: 56px; scroll-margin-top: 20px; }
+  section.category .head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  section.category .head .swatch { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
+  section.category h2 { font-size: 1.9rem; margin: 0; font-weight: 700; }
+  section.category .subhead { color: var(--ink-muted); font-size: 0.98rem; margin: 6px 0 20px; max-width: 68ch; line-height: 1.6; }
+
+  .brandrow { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 22px; }
+  .brandrow .chip {
+    font-size: 0.78rem; font-weight: 600; color: var(--ink-muted);
+    background: var(--surface-2); border-radius: 999px; padding: 4px 11px;
+  }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 20px 22px; margin-bottom: 16px;
+  }
+  .panel h3 {
+    font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 700; margin: 0 0 14px;
+  }
+
+  .tablewrap { overflow-x: auto; }
+  table.spec { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 420px; }
+  table.spec th {
+    text-align: left; padding: 0 16px 9px 0; font-weight: 700;
+    font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule);
+  }
+  table.spec td { padding: 9px 16px 9px 0; border-bottom: 1px solid var(--rule); }
+  table.spec tr:last-child td { border-bottom: none; }
+  table.spec td.num { text-align: right; }
+  table.spec th.num { text-align: right; }
+
+  .pricegrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 4px; }
+  .priceitem { background: var(--surface-2); border-radius: 6px; padding: 12px 14px; }
+  .priceitem .name { font-size: 0.82rem; font-weight: 600; color: var(--ink-muted); margin-bottom: 3px; }
+  .priceitem .range { font-size: 1.15rem; font-weight: 700; }
+  .priceitem .unit { font-size: 0.76rem; color: var(--ink-faint); }
+
+  .setup {
+    background: var(--surface-2); border-radius: 8px; padding: 16px 20px; margin-top: 4px;
+    border: 1px dashed var(--rule);
+  }
+  .setup h3 { color: var(--accent-ink); background: var(--accent); display: inline-block; padding: 2px 8px; border-radius: 3px; margin-bottom: 12px; }
+  .setup dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 0.88rem; }
+  .setup dt { color: var(--ink-faint); font-weight: 600; }
+  .setup dd { margin: 0; }
+  .setup .flag { color: var(--ink); font-weight: 600; }
+
+  footer { max-width: 900px; margin: 40px auto 0; padding: 20px 32px 40px; color: var(--ink-faint); font-size: 0.8rem; line-height: 1.7; }
+  footer a { color: var(--ink-muted); }
+
+  @media (max-width: 860px) {
+    nav.rail { display: none; }
+    main { padding: 22px 18px 70px; }
+    header.hero h1 { font-size: 2rem; }
+  }
+</style>
+
+<div class="tickband"></div>
+
+<div class="shell">
+  <nav class="rail" id="rail">
+    <p class="rail-title">Categories</p>
+    <a href="#sariya" data-target="sariya"><span class="swatch" style="background:var(--steel)"></span>Sariya / Rebar</a>
+    <a href="#cement" data-target="cement"><span class="swatch" style="background:var(--cement)"></span>Cement</a>
+    <a href="#bricks" data-target="bricks"><span class="swatch" style="background:var(--brick)"></span>Bricks</a>
+    <a href="#sand" data-target="sand"><span class="swatch" style="background:var(--sand)"></span>Sand / Rait</a>
+    <a href="#girder" data-target="girder"><span class="swatch" style="background:var(--girder)"></span>TR Girder</a>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <span class="eyebrow">Category setup reference</span>
+      <h1>Five materials, five different units of sale</h1>
+      <p class="lede">
+        Sariya sells by weight but is bought by the piece. Cement is a bag until it isn't.
+        Bricks are quoted per thousand. Sand depends on which river it came from. Girder gets weighed,
+        not measured. This is what each one actually needs in the catalog.
+      </p>
+      <div class="notice">
+        <span>⚠</span>
+        <span><b>Prices move weekly, sometimes daily</b> — they track steel scrap, fuel, and the rupee.
+        Everything below is a snapshot compiled late July 2026 from public Pakistani rate-tracking sites
+        (sources at the bottom). Use it to set realistic starting prices and unit structures — re-check
+        against a dealer before any large purchase order.</span>
+      </div>
+
+      <table class="quicksetup">
+        <thead>
+          <tr><th>Category</th><th>Sold as</th><th>Base unit</th><th>Bulk / alt unit</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="cat-tag"><span class="swatch" style="background:var(--steel)"></span>Sariya</span></td>
+            <td>Per piece (40 ft bar), priced by weight</td>
+            <td>Kilogram</td>
+            <td>Ton · Piece (via conversion)</td>
+          </tr>
+          <tr>
+            <td><span class="cat-tag"><span class="swatch" style="background:var(--cement)"></span>Cement</span></td>
+            <td>Per bag</td>
+            <td>Bag (50 kg)</td>
+            <td>Ton (bulk site orders)</td>
+          </tr>
+          <tr>
+            <td><span class="cat-tag"><span class="swatch" style="background:var(--brick)"></span>Bricks</span></td>
+            <td>Per piece, quoted per 1,000</td>
+            <td>Piece</td>
+            <td>Thousand (= 1,000 pcs)</td>
+          </tr>
+          <tr>
+            <td><span class="cat-tag"><span class="swatch" style="background:var(--sand)"></span>Sand</span></td>
+            <td>Per cubic foot, quoted per trolley</td>
+            <td>CFT</td>
+            <td>Trolley — <em>confirm local CFT/trolley, it varies by supplier</em></td>
+          </tr>
+          <tr>
+            <td><span class="cat-tag"><span class="swatch" style="background:var(--girder)"></span>TR Girder</span></td>
+            <td>Weighed at the counter</td>
+            <td>Kilogram</td>
+            <td>— no reliable piece conversion, see note below</td>
+          </tr>
+        </tbody>
+      </table>
+    </header>
+
+    <!-- SARIYA -->
+    <section class="category" id="sariya">
+      <div class="head"><span class="swatch" style="background:var(--steel)"></span><h2>Sariya — Steel Rebar</h2></div>
+      <p class="subhead">Deformed reinforcement bar. The single most price-sensitive item in the shop — grade and mill both move the rate, and a customer will ask for both.</p>
+
+      <div class="brandrow">
+        <span class="chip">Amreli Steels</span><span class="chip">Agha Steel</span><span class="chip">Mughal Steel</span>
+        <span class="chip">International Steels (ISL)</span><span class="chip">Kamran Steel</span><span class="chip">Naveena Steel</span>
+        <span class="chip">Ittehad</span><span class="chip">Ittefaq</span><span class="chip">Five Star</span>
+      </div>
+
+      <div class="panel">
+        <h3>Grades</h3>
+        <div class="tablewrap">
+          <table class="spec">
+            <thead><tr><th>Grade</th><th>Yield strength</th><th>Typical use</th></tr></thead>
+            <tbody>
+              <tr><td>Grade 60 <span style="color:var(--ink-faint)">(ASTM A615)</span></td><td class="mono">420 MPa</td><td>Standard for slabs, columns, beams — the default ask</td></tr>
+              <tr><td>Grade 40</td><td class="mono">280 MPa</td><td>Lighter structures, boundary walls, stirrups</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Size → weight (40 ft standard bar)</h3>
+        <div class="tablewrap">
+          <table class="spec">
+            <thead><tr><th>Size</th><th class="num">kg / meter</th><th class="num">kg / 40 ft bar</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">10 mm</td><td class="num mono">0.617</td><td class="num mono">7.52</td></tr>
+              <tr><td class="mono">12 mm</td><td class="num mono">0.888</td><td class="num mono">10.84</td></tr>
+              <tr><td class="mono">16 mm</td><td class="num mono">1.58</td><td class="num mono">19.28</td></tr>
+              <tr><td class="mono">20 mm</td><td class="num mono">2.47</td><td class="num mono">30.12</td></tr>
+              <tr><td class="mono">25 mm</td><td class="num mono">3.85</td><td class="num mono">46.96</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Price band <span style="text-transform:none;font-weight:400">— late June 2026</span></h3>
+        <div class="pricegrid">
+          <div class="priceitem"><div class="name">Grade 40</div><div class="range tabular">≈ Rs 260</div><div class="unit">per kg</div></div>
+          <div class="priceitem"><div class="name">Grade 60</div><div class="range tabular">≈ Rs 265</div><div class="unit">per kg</div></div>
+          <div class="priceitem"><div class="name">Per ton, all grades</div><div class="range tabular">Rs 238k–262k</div><div class="unit">per ton</div></div>
+        </div>
+      </div>
+
+      <div class="setup">
+        <h3>ERP setup</h3>
+        <dl>
+          <dt>Base unit</dt><dd>Kilogram (mirrors how it's actually priced)</dd>
+          <dt>Product name</dt><dd>Brand + Grade + Size — e.g. "Amreli Grade 60 20mm"</dd>
+          <dt>Unit conversion</dt><dd>Add <span class="flag">Piece → KG</span> using the bar-weight table above, so a sale can be rung up either "3 bars" or "90 kg" and the ledger still matches</dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- CEMENT -->
+    <section class="category" id="cement">
+      <div class="head"><span class="swatch" style="background:var(--cement)"></span><h2>Cement</h2></div>
+      <p class="subhead">Sold by the bag almost everywhere; bulk site deliveries move to tons. The brand and type both change the shelf price more than the weight does.</p>
+
+      <div class="brandrow">
+        <span class="chip">Lucky Cement</span><span class="chip">DG Khan Cement</span><span class="chip">Bestway</span>
+        <span class="chip">Fauji Cement</span><span class="chip">Cherat</span><span class="chip">Maple Leaf</span>
+        <span class="chip">Kohat Cement</span><span class="chip">Pioneer</span><span class="chip">Askari</span>
+        <span class="chip">Attock Cement</span><span class="chip">Power Cement</span><span class="chip">Flying</span>
+      </div>
+
+      <div class="panel">
+        <h3>Types</h3>
+        <div class="tablewrap">
+          <table class="spec">
+            <thead><tr><th>Type</th><th>Use</th></tr></thead>
+            <tbody>
+              <tr><td>OPC <span style="color:var(--ink-faint)">(Ordinary Portland)</span></td><td>The default — houses, slabs, general RCC. Not sulphate-resistant.</td></tr>
+              <tr><td>Sulphate Resistant (SRC)</td><td>Coastal / saline soil, foundations exposed to groundwater salts</td></tr>
+              <tr><td>White Cement</td><td>Tile grouting, decorative and finishing work — sold in smaller bags too</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Price band — 50 kg bag, late July 2026</h3>
+        <div class="pricegrid">
+          <div class="priceitem"><div class="name">Budget brands</div><div class="range tabular">Rs 1,350–1,400</div><div class="unit">per bag</div></div>
+          <div class="priceitem"><div class="name">Premium brands</div><div class="range tabular">Rs 1,430–1,610</div><div class="unit">per bag</div></div>
+          <div class="priceitem"><div class="name">Karachi retail</div><div class="range tabular">Rs 1,350–1,500</div><div class="unit">per bag</div></div>
+          <div class="priceitem"><div class="name">Lahore / Islamabad</div><div class="range tabular">Rs 1,400–1,610</div><div class="unit">per bag</div></div>
+        </div>
+      </div>
+
+      <div class="setup">
+        <h3>ERP setup</h3>
+        <dl>
+          <dt>Base unit</dt><dd>Bag (50 kg)</dd>
+          <dt>Product name</dt><dd>Brand + Type — e.g. "Lucky Cement OPC", "Maple Leaf White"</dd>
+          <dt>Unit conversion</dt><dd>Add <span class="flag">Bag → KG / Ton</span> for the occasional bulk-site order priced by weight</dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- BRICKS -->
+    <section class="category" id="bricks">
+      <div class="head"><span class="swatch" style="background:var(--brick)"></span><h2>Bricks</h2></div>
+      <p class="subhead">Priced by the piece but always quoted per thousand — invoices and phone-quotes alike. Grade is a quality tier, not a brand.</p>
+
+      <div class="panel">
+        <h3>Grades</h3>
+        <div class="tablewrap">
+          <table class="spec">
+            <thead><tr><th>Grade</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>A-Class / Awwal</td><td>Best-baked, uniform colour, used where the wall is load-bearing or exposed</td></tr>
+              <tr><td>B-Class / Second</td><td>Less baked, cheaper, common for internal or non-load-bearing work</td></tr>
+              <tr><td>Machine-made</td><td>More uniform sizing than hand-made kiln bricks, often the better-value pick</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Standard size &amp; weight</h3>
+        <div class="tablewrap">
+          <table class="spec">
+            <tbody>
+              <tr><td>Nominal (with mortar joint)</td><td class="num mono">9 × 4.5 × 3 in</td></tr>
+              <tr><td>Actual (brick only)</td><td class="num mono">8.75 × 4.25 × 2.75 in</td></tr>
+              <tr><td>Weight per brick</td><td class="num mono">3.2–3.5 kg</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Price band — per 1,000, 2026</h3>
+        <div class="pricegrid">
+          <div class="priceitem"><div class="name">A-Class / Awwal</div><div class="range tabular">Rs 17,000–19,000</div><div class="unit">per 1,000</div></div>
+          <div class="priceitem"><div class="name">B-Class</div><div class="range tabular">Rs 12,000–14,000</div><div class="unit">per 1,000</div></div>
+          <div class="priceitem"><div class="name">Lahore / Islamabad</div><div class="range tabular">+ Rs 1,000–2,000</div><div class="unit">vs. near-kiln areas</div></div>
+        </div>
+      </div>
+
+      <div class="setup">
+        <h3>ERP setup</h3>
+        <dl>
+          <dt>Base unit</dt><dd>Piece (eent)</dd>
+          <dt>Product name</dt><dd>Grade + kiln/source if known — e.g. "A-Class Awwal Brick"</dd>
+          <dt>Unit conversion</dt><dd>Add <span class="flag">Thousand → 1,000 Piece</span> so quotes and supplier invoices key in directly at the unit they're written in</dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- SAND -->
+    <section class="category" id="sand">
+      <div class="head"><span class="swatch" style="background:var(--sand)"></span><h2>Sand / Rait</h2></div>
+      <p class="subhead">The one category where the <em>source river</em> is the product name. Grain and grade decide what it's used for, and the trolley size is a local convention, not a standard.</p>
+
+      <div class="panel">
+        <h3>Types</h3>
+        <div class="tablewrap">
+          <table class="spec">
+            <thead><tr><th>Type</th><th>Grain</th><th>Typical use</th></tr></thead>
+            <tbody>
+              <tr><td>Lawrencepur</td><td>Coarse, premium</td><td>Concrete, RCC work, plaster where strength matters</td></tr>
+              <tr><td>Chenab (A-grade)</td><td>Medium</td><td>Standard residential brickwork and plaster</td></tr>
+              <tr><td>Ravi</td><td>Fine</td><td>Cheaper general fill and local masonry work</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Price band — June 2026</h3>
+        <div class="pricegrid">
+          <div class="priceitem"><div class="name">Lawrencepur</div><div class="range tabular">≈ Rs 305</div><div class="unit">per CFT · ≈ Rs 274,500 / 900 CFT trolley</div></div>
+          <div class="priceitem"><div class="name">Chenab A-grade</div><div class="range tabular">Rs 95–100</div><div class="unit">per CFT · Rs 85,500–90,000 / trolley</div></div>
+          <div class="priceitem"><div class="name">Ravi</div><div class="range tabular">Rs 85–90</div><div class="unit">per CFT · Rs 76,500–81,000 / trolley</div></div>
+        </div>
+      </div>
+
+      <div class="setup">
+        <h3>ERP setup</h3>
+        <dl>
+          <dt>Base unit</dt><dd>CFT (cubic foot)</dd>
+          <dt>Product name</dt><dd>Type — e.g. "Chenab Sand", "Lawrencepur Sand"</dd>
+          <dt>Unit conversion</dt><dd><span class="flag">Confirm before setting one up</span> — 900 CFT/trolley is common but some suppliers load 1,250 CFT. Ask the actual supplier, don't assume.</dd>
+        </dl>
+      </div>
+    </section>
+
+    <!-- TR GIRDER -->
+    <section class="category" id="girder">
+      <div class="head"><span class="swatch" style="background:var(--girder)"></span><h2>TR Girder / T-Iron</h2></div>
+      <p class="subhead">T-shaped section used for roof beams and trusses. Unlike sariya, there's no clean industry-wide size-to-weight table — it's genuinely weighed at the counter.</p>
+
+      <div class="brandrow">
+        <span class="chip">Mughal Supreme</span><span class="chip">Ittefaq</span><span class="chip">Ittehad</span><span class="chip">Amreli Steel</span>
+      </div>
+
+      <div class="panel">
+        <h3>Sizes in common use</h3>
+        <div class="tablewrap">
+          <table class="spec">
+            <tbody>
+              <tr><td>7 in, 9 in</td><td>Most common — home construction roof spans</td></tr>
+              <tr><td>3–5 in</td><td>Lighter structures, shorter spans</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Price band</h3>
+        <div class="pricegrid">
+          <div class="priceitem"><div class="name">Market range</div><div class="range tabular">Rs 245–350</div><div class="unit">per kg, size &amp; brand dependent</div></div>
+        </div>
+      </div>
+
+      <div class="setup">
+        <h3>ERP setup</h3>
+        <dl>
+          <dt>Base unit</dt><dd>Kilogram</dd>
+          <dt>Product name</dt><dd>Brand + Size — e.g. "Mughal Supreme 9 inch"</dd>
+          <dt>Unit conversion</dt><dd><span class="flag">Don't set up a piece→kg conversion.</span> Weight per foot varies by mill batch, so weigh each delivery like the market does rather than trusting a fixed factor.</dd>
+        </dl>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  Compiled 26 July 2026 from public Pakistani building-material rate trackers. Rates are regional and
+  change frequently — treat every figure above as a starting point for catalog setup, not a live quote.
+  <br /><br />
+  Sources: icons.com.pk · whatisprice.pk · gloriousbuilders.com · aonesteelmills.com · alfarooqbuildmart.com ·
+  amrelisteels.com · structuralguide.com · arynews.tv · pakdevelop.com · gharhub.com · themsquare.com.pk ·
+  niazibricks.com.pk · anstraders.pk · priceinfo.pk · checkprice.pk · marketdeals.pk · mwpbnp.com · pricesin.pk
+</footer>
+
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.rail a'));
+    var sections = links.map(function (l) { return document.getElementById(l.dataset.target); });
+    if (!('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        var link = links[sections.indexOf(e.target)];
+        if (!link) return;
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-10% 0px -70% 0px' });
+    sections.forEach(function (s) { if (s) io.observe(s); });
+  })();
+</script>

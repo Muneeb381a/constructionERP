@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+
+# Environment / secrets — never commit real credentials, only .env.example templates
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Generic secret-shaped files, in case any get dropped in locally
+*.pem
+*.key
+*.p12
+*credentials*.json
+*secrets*.json
+
+# Contains real tenant login credentials (owner/cashier passwords) for local testing —
+# keep it out of version control; regenerate locally from db:seed instead of committing it.
+IMPLEMENTATION_STATUS.md

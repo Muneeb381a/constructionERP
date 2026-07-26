@@ -1,0 +1,60 @@
+{
+  "app": {
+    "name": "Construction ERP"
+  },
+  "nav": {
+    "groupOverview": "Overview",
+    "groupTransactions": "Transactions",
+    "groupCatalog": "Catalog",
+    "groupOperations": "Operations",
+    "dashboard": "Dashboard",
+    "reports": "Reports",
+    "auditLog": "Audit Log",
+    "newSale": "New Sale",
+    "newPurchase": "New Purchase",
+    "invoices": "Invoices",
+    "quotations": "Quotations",
+    "products": "Products",
+    "parties": "Parties",
+    "stock": "Stock",
+    "cashBook": "Cash Book",
+    "expenses": "Expenses",
+    "employees": "Employees",
+    "logout": "Log out"
+  },
+  "auth": {
+    "login": "Log in",
+    "email": "Email",
+    "password": "Password",
+    "loggingIn": "Logging in…",
+    "newBusiness": "New business?",
+    "register": "Register",
+    "registerTitle": "Register your business",
+    "businessName": "Business name",
+    "yourName": "Your name",
+    "creatingAccount": "Creating account…",
+    "createAccount": "Create account",
+    "alreadyHaveAccount": "Already have an account?"
+  },
+  "dashboard": {
+    "today": "Today",
+    "todaySales": "Today's Sales",
+    "todayPurchases": "Today's Purchases",
+    "cashInHand": "Cash in Hand",
+    "outstanding": "Outstanding",
+    "receivable": "Receivable",
+    "payable": "Payable",
+    "lowStock": "Low Stock",
+    "noLowStock": "No products below their minimum stock level.",
+    "restricted": "The dashboard is available to owners, managers, and accountants only.",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load dashboard.",
+    "invoiceCount_one": "{{count}} invoice",
+    "invoiceCount_other": "{{count}} invoices"
+  },
+  "common": {
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "save": "Save"
+  }
+}

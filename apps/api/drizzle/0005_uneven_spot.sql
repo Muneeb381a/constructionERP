@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "max_stock" numeric(14, 3);

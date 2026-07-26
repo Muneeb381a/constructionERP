@@ -1,0 +1,69 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784635018779,
+      "tag": "0000_icy_madame_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784636550008,
+      "tag": "0001_tense_echo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784727456109,
+      "tag": "0002_dazzling_apocalypse",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784829379155,
+      "tag": "0003_tan_baron_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784833009554,
+      "tag": "0004_true_otto_octavius",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785054006491,
+      "tag": "0005_uneven_spot",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785056110254,
+      "tag": "0006_peaceful_wendell_vaughn",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785057122458,
+      "tag": "0007_slippery_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785058015360,
+      "tag": "0008_concerned_scarlet_witch",
+      "breakpoints": true
+    }
+  ]
+}
