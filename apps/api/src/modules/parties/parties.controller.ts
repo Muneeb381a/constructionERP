@@ -67,6 +67,11 @@ export async function revokePublicLink(req: Request, res: Response) {
 }
 
 export async function publicBalance(req: Request, res: Response) {
-  const result = await partiesService.getPublicBalanceByToken(req.params.token as string);
+  const token = req.params.token as string;
+  // A malformed token isn't just "not found" — publicToken is a uuid column, so querying it
+  // with a non-UUID string throws a Postgres type error, not an empty result. Reject the
+  // shape here so a garbage link 404s cleanly instead of 500ing.
+  if (!UUID_RE.test(token)) throw new HttpError(404, "Invalid or expired link");
+  const result = await partiesService.getPublicBalanceByToken(token);
   res.json(result);
 }
