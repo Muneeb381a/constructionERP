@@ -22,6 +22,7 @@ import { EmployeesPage } from "./pages/EmployeesPage";
 import { EmployeeDetailPage } from "./pages/EmployeeDetailPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { PublicBalancePage } from "./pages/PublicBalancePage";
 
 function RedirectToCustomer() {
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/employees/:id" element={<EmployeeDetailPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="/audit-log" element={<AuditLogPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
 

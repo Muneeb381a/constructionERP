@@ -3,7 +3,7 @@ import { db } from "../../db/index.js";
 import { users } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { hashPassword } from "../../lib/password.js";
-import type { CreateUserInput, UpdateUserInput } from "./users.schema.js";
+import type { CreateUserInput, UpdateOwnProfileInput, UpdateUserInput } from "./users.schema.js";
 
 const columns = {
   id: users.id,
@@ -12,12 +12,35 @@ const columns = {
   name: users.name,
   email: users.email,
   role: users.role,
+  avatarUrl: users.avatarUrl,
   isActive: users.isActive,
   createdAt: users.createdAt,
 };
 
 export function listUsers(tenantId: string) {
   return db.select(columns).from(users).where(eq(users.tenantId, tenantId));
+}
+
+export async function getUserById(tenantId: string, userId: string) {
+  const [user] = await db.select(columns).from(users).where(and(eq(users.id, userId), eq(users.tenantId, tenantId))).limit(1);
+  if (!user) throw new HttpError(404, "User not found");
+  return user;
+}
+
+export async function updateOwnProfile(tenantId: string, userId: string, input: UpdateOwnProfileInput) {
+  const [updated] = await db.update(users).set(input).where(and(eq(users.id, userId), eq(users.tenantId, tenantId))).returning(columns);
+  if (!updated) throw new HttpError(404, "User not found");
+  return updated;
+}
+
+export async function setUserAvatar(tenantId: string, userId: string, avatarUrl: string) {
+  const [updated] = await db
+    .update(users)
+    .set({ avatarUrl })
+    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+    .returning(columns);
+  if (!updated) throw new HttpError(404, "User not found");
+  return updated;
 }
 
 export async function createUser(tenantId: string, input: CreateUserInput) {

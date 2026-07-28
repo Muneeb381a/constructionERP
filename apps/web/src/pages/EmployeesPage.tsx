@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Modal } from "../components/Modal";
+import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
@@ -37,7 +38,7 @@ function TodayAttendanceCard() {
     },
   });
 
-  if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (isLoading) return <Loader />;
   if (!data || data.employees.length === 0) return null;
 
   return (
@@ -229,7 +230,7 @@ export function EmployeesPage() {
       />
 
       {isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <Loader />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
           <table className="w-full text-left text-sm">

@@ -11,6 +11,7 @@ import {
   Package,
   Receipt,
   ReceiptText,
+  Settings,
   ShieldCheck,
   ShoppingCart,
   Truck,
@@ -58,7 +59,10 @@ const navGroups = [
   },
   {
     labelKey: "nav.groupAdmin",
-    items: [{ to: "/audit-log", key: "auditLog", icon: ShieldCheck }],
+    items: [
+      { to: "/audit-log", key: "auditLog", icon: ShieldCheck },
+      { to: "/settings", key: "settings", icon: Settings },
+    ],
   },
 ] as const;
 
@@ -133,13 +137,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="space-y-3 border-t border-gray-200 p-3">
         <LanguageSwitcher />
         <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">
-            {initials(user?.name)}
-          </div>
-          <div className="min-w-0 flex-1">
+          <Link
+            to="/settings"
+            title="Settings"
+            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-xs font-semibold text-blue-700"
+          >
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials(user?.name)
+            )}
+          </Link>
+          <Link to="/settings" className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-gray-900">{user?.name}</p>
             <p className="truncate text-xs capitalize text-gray-500">{user?.role}</p>
-          </div>
+          </Link>
           <button
             onClick={handleLogout}
             aria-label={t("nav.logout")}

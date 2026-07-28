@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../store/authStore";
+import { Loader } from "../components/Loader";
 import { listAuditLog, type AuditLogEntry } from "../lib/api/audit";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -67,7 +68,7 @@ export function AuditLogPage() {
       <p className="text-sm text-gray-500 dark:text-gray-400">Sensitive actions across the account — voids, credit-limit overrides, and reconciliation flags.</p>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <Loader />
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">

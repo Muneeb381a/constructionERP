@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { Link2, MessageCircle } from "lucide-react";
 import { Modal } from "../components/Modal";
+import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
@@ -97,7 +98,7 @@ function BillHistory({ party }: { party: Party }) {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <Loader />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
           <table className="w-full text-left text-sm">
@@ -385,7 +386,7 @@ export function PartyDetailPage() {
     onError: (err) => setShareLinkError(axiosErrorMessage(err) ?? "Failed to create link"),
   });
 
-  if (partyLoading || !party) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (partyLoading || !party) return <Loader full />;
 
   return (
     <div className="space-y-6">
@@ -536,7 +537,7 @@ export function PartyDetailPage() {
       <div>
         <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ledger History</h2>
         {ledgerLoading ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+          <Loader />
         ) : (
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
             <table className="w-full text-left text-sm">

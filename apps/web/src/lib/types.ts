@@ -7,6 +7,7 @@ export type User = {
   role: Role;
   tenantId: string;
   branchId: string | null;
+  avatarUrl: string | null;
 };
 
 export type AuthResponse = {

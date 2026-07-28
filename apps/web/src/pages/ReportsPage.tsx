@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { SalesTrendChart } from "../components/SalesTrendChart";
+import { Loader } from "../components/Loader";
 import { inputClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
@@ -44,7 +45,7 @@ function AgingReportSection() {
       </div>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
-          <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+          <Loader />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
@@ -105,7 +106,7 @@ function ReorderSuggestionsSection() {
       <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Reorder Suggestions</h2>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
-          <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+          <Loader />
         ) : !data || data.length === 0 ? (
           <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Nothing below its reorder point right now.</p>
         ) : (
@@ -240,7 +241,7 @@ export function ReportsPage() {
         <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Sales vs Purchases</h2>
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {trendLoading ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+            <Loader />
           ) : (
             <SalesTrendChart data={trend ?? []} />
           )}

@@ -6,6 +6,7 @@ import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { useShopContext } from "../hooks/useShopContext";
+import { Loader } from "../components/Loader";
 import { listUnits } from "../lib/api/units";
 import { getProduct } from "../lib/api/products";
 import { getQuotation, updateQuotationStatus, convertQuotation, type QuotationStatus } from "../lib/api/quotations";
@@ -108,7 +109,7 @@ export function QuotationDetailPage() {
     onError: (err) => setStatusError(axiosErrorMessage(err) ?? "Failed to update status"),
   });
 
-  if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (isLoading) return <Loader full />;
   if (!data) return <p className="text-sm text-red-600 dark:text-red-400">Quotation not found.</p>;
 
   const { quotation } = data;

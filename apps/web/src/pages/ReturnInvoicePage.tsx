@@ -5,6 +5,7 @@ import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { useShopContext } from "../hooks/useShopContext";
+import { Loader } from "../components/Loader";
 import { listUnits } from "../lib/api/units";
 import { getProduct } from "../lib/api/products";
 import { getInvoice, createReturnInvoice } from "../lib/api/invoices";
@@ -66,7 +67,7 @@ export function ReturnInvoicePage() {
     onError: (err) => setSubmitError(axiosErrorMessage(err) ?? "Failed to create return"),
   });
 
-  if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (isLoading) return <Loader full />;
   if (!data) return <p className="text-sm text-red-600 dark:text-red-400">Invoice not found.</p>;
 
   const { invoice } = data;

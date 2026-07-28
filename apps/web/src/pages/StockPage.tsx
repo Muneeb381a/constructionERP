@@ -6,6 +6,7 @@ import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import { useShopContext } from "../hooks/useShopContext";
+import { Loader } from "../components/Loader";
 import { listWarehouses } from "../lib/api/warehouses";
 import { adjustStock, createTransfer, listStockByWarehouse, listStockMovements, type StockByWarehouseRow } from "../lib/api/stock";
 import { computeStockLevel, MaterialStockVisual, StatusBadge } from "../components/inventory/MaterialStockVisual";
@@ -160,7 +161,7 @@ function TransferStockForm({
 function MovementsList({ productId }: { productId: string }) {
   const { data, isLoading } = useQuery({ queryKey: ["stock-movements", productId], queryFn: () => listStockMovements(productId) });
 
-  if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (isLoading) return <Loader />;
 
   return (
     <div className="max-h-80 overflow-y-auto">
@@ -328,7 +329,7 @@ export function StockPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <Loader />
       ) : view === "cards" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredStock?.map((row) => (

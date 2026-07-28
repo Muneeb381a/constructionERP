@@ -12,6 +12,7 @@ import { getParty } from "../lib/api/parties";
 import { getMyTenant } from "../lib/api/tenants";
 import { listEmployees } from "../lib/api/employees";
 import { Modal } from "../components/Modal";
+import { Loader } from "../components/Loader";
 import { ReceiptImage, type ReceiptLine } from "../components/ReceiptImage";
 
 const TYPE_LABELS = {
@@ -224,7 +225,7 @@ export function InvoiceDetailPage() {
     }
   }
 
-  if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (isLoading) return <Loader full />;
   if (!data) return <p className="text-sm text-red-600 dark:text-red-400">Invoice not found.</p>;
 
   const { invoice, items } = data;

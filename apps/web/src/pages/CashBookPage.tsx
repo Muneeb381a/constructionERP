@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../components/Modal";
+import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
@@ -111,7 +112,7 @@ export function CashBookPage() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <Loader />
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">

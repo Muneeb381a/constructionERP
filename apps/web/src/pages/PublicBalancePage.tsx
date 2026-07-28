@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { formatCurrency } from "../lib/format";
+import { Loader } from "../components/Loader";
 import { getPublicBalance, type PublicBalanceBill } from "../lib/api/parties";
 
 const STATUS_STYLES: Record<PublicBalanceBill["status"], string> = {
@@ -31,7 +32,7 @@ export function PublicBalancePage() {
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-md">
         {isLoading ? (
-          <p className="text-center text-sm text-gray-500">Loading…</p>
+          <Loader />
         ) : isError || !data ? (
           <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
             <p className="text-sm text-red-600">This link is invalid or has expired.</p>

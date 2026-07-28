@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { inputClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
+import { Loader } from "../components/Loader";
 import { listQuotations, type QuotationStatus } from "../lib/api/quotations";
 
 const STATUS_STYLES: Record<QuotationStatus, string> = {
@@ -52,7 +53,7 @@ export function QuotationsListPage() {
       </select>
 
       {isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <Loader />
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">

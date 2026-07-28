@@ -15,5 +15,10 @@ export const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+export const updateOwnProfileSchema = z.object({
+  name: z.string().min(2).max(120).optional(),
+});
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UpdateOwnProfileInput = z.infer<typeof updateOwnProfileSchema>;

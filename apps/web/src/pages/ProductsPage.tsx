@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../components/Modal";
+import { Loader } from "../components/Loader";
 import { RateHistoryChart } from "../components/RateHistoryChart";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
@@ -361,7 +362,7 @@ function BulkPriceUpdateForm({ onDone }: { onDone: () => void }) {
 
 function RateHistoryModalContent({ productId }: { productId: string }) {
   const { data, isLoading } = useQuery({ queryKey: ["rate-history", productId], queryFn: () => getRateHistory(productId) });
-  if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (isLoading) return <Loader />;
   return <RateHistoryChart data={data ?? []} />;
 }
 
@@ -438,7 +439,7 @@ export function ProductsPage() {
       />
 
       {isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <Loader />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
           <table className="w-full text-left text-sm">

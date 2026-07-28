@@ -2,7 +2,15 @@ import type { Request, Response } from "express";
 import * as authService from "./auth.service.js";
 import { loginSchema, refreshSchema, registerSchema } from "./auth.schema.js";
 
-function serializeUser(user: { id: string; name: string; email: string; role: string; tenantId: string; branchId: string | null }) {
+function serializeUser(user: {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  tenantId: string;
+  branchId: string | null;
+  avatarUrl?: string | null;
+}) {
   return {
     id: user.id,
     name: user.name,
@@ -10,6 +18,7 @@ function serializeUser(user: { id: string; name: string; email: string; role: st
     role: user.role,
     tenantId: user.tenantId,
     branchId: user.branchId,
+    avatarUrl: user.avatarUrl ?? null,
   };
 }
 

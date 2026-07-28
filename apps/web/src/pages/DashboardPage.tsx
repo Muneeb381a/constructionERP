@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { apiClient } from "../lib/apiClient";
 import { Modal } from "../components/Modal";
+import { Loader } from "../components/Loader";
 import { PartyPicker } from "../components/PartyPicker";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
@@ -231,7 +232,7 @@ export function DashboardPage() {
     return <p className="text-sm text-gray-500 dark:text-gray-400">{t("dashboard.restricted")}</p>;
   }
 
-  if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">{t("dashboard.loading")}</p>;
+  if (isLoading) return <Loader full label={t("dashboard.loading")} />;
   if (isError || !data) return <p className="text-sm text-red-600 dark:text-red-400">{t("dashboard.loadFailed")}</p>;
 
   return (

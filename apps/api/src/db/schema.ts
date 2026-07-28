@@ -20,6 +20,9 @@ export const deliveryStatusEnum = pgEnum("delivery_status", ["not_applicable", "
 export const tenants = pgTable("tenants", {
   id: uuid("id").defaultRandom().primaryKey(),
   businessName: varchar("business_name", { length: 160 }).notNull(),
+  logoUrl: text("logo_url"),
+  address: varchar("address", { length: 250 }),
+  phone: varchar("phone", { length: 20 }),
   allowNegativeStock: boolean("allow_negative_stock").default(false),
   defaultCurrency: varchar("default_currency", { length: 10 }).default("PKR"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -41,6 +44,7 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 160 }).notNull(),
   passwordHash: text("password_hash").notNull(),
   role: roleEnum("role").notNull().default("cashier"),
+  avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => ({

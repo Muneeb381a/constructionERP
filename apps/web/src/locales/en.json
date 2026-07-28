@@ -21,6 +21,7 @@
     "cashBook": "Cash Book",
     "expenses": "Expenses",
     "employees": "Employees",
+    "settings": "Settings",
     "logout": "Log out"
   },
   "auth": {

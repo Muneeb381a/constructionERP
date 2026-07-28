@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import { Modal } from "../components/Modal";
+import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
@@ -336,7 +337,7 @@ export function EmployeeDetailPage() {
     enabled: !!id,
   });
 
-  if (isLoading || !employee) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (isLoading || !employee) return <Loader full />;
 
   return (
     <div className="space-y-6">

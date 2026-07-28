@@ -71,6 +71,13 @@
       "when": 1785233330276,
       "tag": "0009_safe_captain_midlands",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785256546600,
+      "tag": "0010_wooden_molly_hayes",
+      "breakpoints": true
     }
   ]
 }
