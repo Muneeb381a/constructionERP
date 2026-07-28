@@ -30,7 +30,9 @@ export type PartyInput = {
   creditLimit?: number;
 };
 
-export async function listParties(params: { search?: string; type?: "customer" | "supplier"; page?: number } = {}) {
+export async function listParties(
+  params: { search?: string; type?: "customer" | "supplier"; page?: number; sort?: "recent" | "balance" } = {},
+) {
   const res = await apiClient.get<PartyListResponse>("/parties", { params });
   return res.data;
 }

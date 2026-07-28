@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { branches, quotationItems, quotations } from "../../db/schema.js";
+import { branches, parties, quotationItems, quotations } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { resolveLineItems } from "../invoices/shared.js";
 import { generateInvoiceNumber } from "../invoices/invoiceNumber.service.js";
@@ -83,7 +83,30 @@ export async function listQuotations(tenantId: string, query: ListQuotationsQuer
   const offset = (query.page - 1) * query.limit;
 
   const [rows, [{ count }]] = await Promise.all([
-    db.select().from(quotations).where(where).orderBy(desc(quotations.createdAt)).limit(query.limit).offset(offset),
+    db
+      .select({
+        id: quotations.id,
+        tenantId: quotations.tenantId,
+        branchId: quotations.branchId,
+        quotationNo: quotations.quotationNo,
+        partyId: quotations.partyId,
+        partyName: parties.name,
+        userId: quotations.userId,
+        status: quotations.status,
+        subtotal: quotations.subtotal,
+        discount: quotations.discount,
+        totalAmount: quotations.totalAmount,
+        validUntil: quotations.validUntil,
+        notes: quotations.notes,
+        convertedInvoiceId: quotations.convertedInvoiceId,
+        createdAt: quotations.createdAt,
+      })
+      .from(quotations)
+      .leftJoin(parties, eq(parties.id, quotations.partyId))
+      .where(where)
+      .orderBy(desc(quotations.createdAt))
+      .limit(query.limit)
+      .offset(offset),
     db.select({ count: sql<number>`count(*)::int` }).from(quotations).where(where),
   ]);
 

@@ -22,6 +22,7 @@ export const listPartiesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
   search: z.string().max(160).optional(),
   type: z.enum(["customer", "supplier"]).optional(),
+  sort: z.enum(["recent", "balance"]).optional().default("recent"),
 });
 
 export type CreatePartyInput = z.infer<typeof createPartySchema>;

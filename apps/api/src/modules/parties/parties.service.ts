@@ -28,9 +28,10 @@ export async function listParties(tenantId: string, query: ListPartiesQuery) {
 
   const where = and(...conditions);
   const offset = (query.page - 1) * query.limit;
+  const orderBy = query.sort === "balance" ? desc(parties.cachedBalance) : desc(parties.createdAt);
 
   const [rows, [{ count }]] = await Promise.all([
-    db.select().from(parties).where(where).orderBy(desc(parties.createdAt)).limit(query.limit).offset(offset),
+    db.select().from(parties).where(where).orderBy(orderBy).limit(query.limit).offset(offset),
     db.select({ count: sql<number>`count(*)::int` }).from(parties).where(where),
   ]);
 

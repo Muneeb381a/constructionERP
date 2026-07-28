@@ -8,6 +8,7 @@ export type Quotation = {
   branchId: string;
   quotationNo: string;
   partyId: string | null;
+  partyName: string | null;
   userId: string | null;
   status: QuotationStatus;
   subtotal: string;
