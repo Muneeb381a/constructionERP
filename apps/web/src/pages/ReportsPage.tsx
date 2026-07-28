@@ -61,7 +61,7 @@ function AgingReportSection() {
               {data?.map((row) => (
                 <tr key={row.partyId}>
                   <td className="px-4 py-3">
-                    <Link to={`/parties/${row.partyId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                    <Link to={`/customers/${row.partyId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                       {row.partyName}
                     </Link>
                   </td>

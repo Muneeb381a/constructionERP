@@ -29,7 +29,6 @@ const navGroups = [
     items: [
       { to: "/dashboard", key: "dashboard", icon: LayoutDashboard },
       { to: "/reports", key: "reports", icon: BarChart3 },
-      { to: "/audit-log", key: "auditLog", icon: ShieldCheck },
     ],
   },
   {
@@ -44,8 +43,8 @@ const navGroups = [
   {
     labelKey: "nav.groupCatalog",
     items: [
+      { to: "/customers", key: "customers", icon: Users },
       { to: "/products", key: "products", icon: Package },
-      { to: "/parties", key: "parties", icon: Users },
     ],
   },
   {
@@ -56,6 +55,10 @@ const navGroups = [
       { to: "/expenses", key: "expenses", icon: ReceiptText },
       { to: "/employees", key: "employees", icon: HardHat },
     ],
+  },
+  {
+    labelKey: "nav.groupAdmin",
+    items: [{ to: "/audit-log", key: "auditLog", icon: ShieldCheck }],
   },
 ] as const;
 

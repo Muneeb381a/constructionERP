@@ -213,7 +213,7 @@ export function DashboardPage() {
                 {topCustomers.map((customer) => (
                   <tr key={customer.id}>
                     <td className="px-4 py-3">
-                      <Link to={`/parties/${customer.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                      <Link to={`/customers/${customer.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                         {customer.name}
                       </Link>
                     </td>

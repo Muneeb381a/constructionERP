@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, ShoppingBag, Truck, User, Phone, MapPin, IdCard, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
@@ -11,6 +11,15 @@ import { useAuthStore } from "../store/authStore";
 import { createParty, listParties, updateParty, type Party, type PartyInput } from "../lib/api/parties";
 
 const emptyForm: PartyInput = { type: "customer", name: "", phone: "", cnic: "", address: "", creditLimit: 0 };
+
+function FieldWithIcon({ icon: Icon, children }: { icon: ComponentType<{ size?: number; className?: string }>; children: React.ReactNode }) {
+  return (
+    <div className="relative mt-1">
+      <Icon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {children}
+    </div>
+  );
+}
 
 function PartyForm({
   initial,
@@ -37,48 +46,107 @@ function PartyForm({
         e.preventDefault();
         onSubmit(form);
       }}
-      className="space-y-4"
+      className="space-y-5"
     >
       <div>
         <label className={labelClass}>Type</label>
-        <select
-          disabled={isEdit}
-          value={form.type}
-          onChange={(e) => setForm({ ...form, type: e.target.value as "customer" | "supplier" })}
-          className={inputClass + (isEdit ? " opacity-60" : "")}
-        >
-          <option value="customer">Customer</option>
-          <option value="supplier">Supplier</option>
-        </select>
-        {isEdit && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Party type can't be changed after creation.</p>}
+        <div className={`mt-1 grid grid-cols-2 gap-2 ${isEdit ? "opacity-60" : ""}`}>
+          <button
+            type="button"
+            disabled={isEdit}
+            onClick={() => setForm({ ...form, type: "customer" })}
+            className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+              form.type === "customer"
+                ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300"
+                : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            }`}
+          >
+            <ShoppingBag size={15} />
+            Customer
+          </button>
+          <button
+            type="button"
+            disabled={isEdit}
+            onClick={() => setForm({ ...form, type: "supplier" })}
+            className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+              form.type === "supplier"
+                ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300"
+                : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            }`}
+          >
+            <Truck size={15} />
+            Supplier
+          </button>
+        </div>
+        {isEdit && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Type can't be changed after creation.</p>}
       </div>
-      <div>
-        <label className={labelClass}>Name</label>
-        <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} />
-      </div>
-      <div>
-        <label className={labelClass}>Phone</label>
-        <input value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} />
-      </div>
-      <div>
-        <label className={labelClass}>CNIC</label>
-        <input value={form.cnic ?? ""} onChange={(e) => setForm({ ...form, cnic: e.target.value })} className={inputClass} />
-      </div>
-      <div>
-        <label className={labelClass}>Address</label>
-        <input value={form.address ?? ""} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputClass} />
-      </div>
-      {canSetCreditLimit && (
+
+      <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Basic Info</p>
         <div>
-          <label className={labelClass}>Credit Limit</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.creditLimit}
-            onChange={(e) => setForm({ ...form, creditLimit: Number(e.target.value) })}
-            className={inputClass}
-          />
+          <label className={labelClass}>Name</label>
+          <FieldWithIcon icon={User}>
+            <input
+              required
+              autoFocus
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={inputClass + " mt-0 pl-9"}
+              placeholder="e.g. Ahmed Traders"
+            />
+          </FieldWithIcon>
+        </div>
+        <div>
+          <label className={labelClass}>Phone</label>
+          <FieldWithIcon icon={Phone}>
+            <input
+              value={form.phone ?? ""}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              className={inputClass + " mt-0 pl-9"}
+              placeholder="03xx-xxxxxxx"
+            />
+          </FieldWithIcon>
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Additional Details</p>
+        <div>
+          <label className={labelClass}>CNIC</label>
+          <FieldWithIcon icon={IdCard}>
+            <input
+              value={form.cnic ?? ""}
+              onChange={(e) => setForm({ ...form, cnic: e.target.value })}
+              className={inputClass + " mt-0 pl-9"}
+              placeholder="xxxxx-xxxxxxx-x"
+            />
+          </FieldWithIcon>
+        </div>
+        <div>
+          <label className={labelClass}>Address</label>
+          <FieldWithIcon icon={MapPin}>
+            <input
+              value={form.address ?? ""}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              className={inputClass + " mt-0 pl-9"}
+            />
+          </FieldWithIcon>
+        </div>
+      </div>
+
+      {canSetCreditLimit && (
+        <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Credit Limit</p>
+          <FieldWithIcon icon={Wallet}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.creditLimit}
+              onChange={(e) => setForm({ ...form, creditLimit: Number(e.target.value) })}
+              className={inputClass + " mt-0 pl-9"}
+            />
+          </FieldWithIcon>
         </div>
       )}
 
@@ -125,7 +193,7 @@ export function PartiesPage() {
       queryClient.invalidateQueries({ queryKey: ["parties"] });
       setModal(null);
     },
-    onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to save party"),
+    onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to save customer"),
   });
 
   const updateMutation = useMutation({
@@ -134,13 +202,13 @@ export function PartiesPage() {
       queryClient.invalidateQueries({ queryKey: ["parties"] });
       setModal(null);
     },
-    onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to save party"),
+    onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to save customer"),
   });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Parties</h1>
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Customers</h1>
         <button
           onClick={() => {
             setFormError(null);
@@ -148,7 +216,7 @@ export function PartiesPage() {
           }}
           className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
-          Add Party
+          Add Customer
         </button>
       </div>
 
@@ -185,7 +253,7 @@ export function PartiesPage() {
               {data?.data.map((party) => (
                 <tr key={party.id}>
                   <td className="px-4 py-2">
-                    <Link to={`/parties/${party.id}`} className="text-blue-600 hover:underline dark:text-blue-400">
+                    <Link to={`/customers/${party.id}`} className="text-blue-600 hover:underline dark:text-blue-400">
                       {party.name}
                     </Link>
                   </td>
@@ -225,7 +293,7 @@ export function PartiesPage() {
               {data?.data.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
-                    No parties found.
+                    No customers found.
                   </td>
                 </tr>
               )}
@@ -235,7 +303,7 @@ export function PartiesPage() {
       )}
 
       {modal?.mode === "create" && (
-        <Modal title="Add Party" onClose={() => setModal(null)}>
+        <Modal title="Add Customer" size="lg" onClose={() => setModal(null)}>
           <PartyForm
             initial={emptyForm}
             isEdit={false}
@@ -249,7 +317,7 @@ export function PartiesPage() {
       )}
 
       {modal?.mode === "edit" && (
-        <Modal title="Edit Party" onClose={() => setModal(null)}>
+        <Modal title="Edit Customer" size="lg" onClose={() => setModal(null)}>
           <PartyForm
             initial={{
               type: modal.party.type,

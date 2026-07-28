@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./components/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
@@ -24,6 +24,11 @@ import { ExpensesPage } from "./pages/ExpensesPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { PublicBalancePage } from "./pages/PublicBalancePage";
 
+function RedirectToCustomer() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/customers/${id}`} replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -44,8 +49,10 @@ export default function App() {
           <Route path="/quotations/new" element={<CreateQuotationPage />} />
           <Route path="/quotations/:id" element={<QuotationDetailPage />} />
           <Route path="/products" element={<ProductsPage />} />
-          <Route path="/parties" element={<PartiesPage />} />
-          <Route path="/parties/:id" element={<PartyDetailPage />} />
+          <Route path="/customers" element={<PartiesPage />} />
+          <Route path="/customers/:id" element={<PartyDetailPage />} />
+          <Route path="/parties" element={<Navigate to="/customers" replace />} />
+          <Route path="/parties/:id" element={<RedirectToCustomer />} />
           <Route path="/stock" element={<StockPage />} />
           <Route path="/cash-book" element={<CashBookPage />} />
           <Route path="/employees" element={<EmployeesPage />} />

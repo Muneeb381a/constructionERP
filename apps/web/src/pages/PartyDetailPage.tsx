@@ -382,8 +382,8 @@ export function PartyDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/parties" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
-          ← Back to Parties
+        <Link to="/customers" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+          ← Back to Customers
         </Link>
         <div className="mt-1 flex items-center justify-between">
           <div>
