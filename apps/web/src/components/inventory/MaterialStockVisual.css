@@ -1,19 +1,10 @@
+/* Always the light palette — this app doesn't use dark mode, see index.css. */
 .mv-root {
   --mv-empty: #f0efec;
   --mv-stroke: #52514e;
   --mv-cap: #e1e0d9;
   --mv-min-line: #898781;
   --mv-strap: #898781;
-}
-
-@media (prefers-color-scheme: dark) {
-  .mv-root {
-    --mv-empty: #262624;
-    --mv-stroke: #c3c2b7;
-    --mv-cap: #2c2c2a;
-    --mv-min-line: #898781;
-    --mv-strap: #898781;
-  }
 }
 
 .mv-svg {

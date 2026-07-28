@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
+/* This ERP always renders its light theme — dark backgrounds tested poorly with users, so
+   dark mode is disabled app-wide regardless of OS/browser color-scheme preference. The `dark:`
+   utilities scattered through the codebase are left in place (harmless) but redefined to only
+   fire on a `.dark` ancestor class that nothing ever applies, making them permanently inert. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 body {
