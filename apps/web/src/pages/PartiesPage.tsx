@@ -6,9 +6,10 @@ import { Modal } from "../components/Modal";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
-import { buildBalanceReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
+import { buildBillReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
 import { useAuthStore } from "../store/authStore";
 import { createParty, listParties, updateParty, type Party, type PartyInput } from "../lib/api/parties";
+import { listPartyBills } from "../lib/api/payments";
 
 const emptyForm: PartyInput = { type: "customer", name: "", phone: "", cnic: "", address: "", creditLimit: 0 };
 
@@ -181,6 +182,22 @@ export function PartiesPage() {
   const [typeFilter, setTypeFilter] = useState<"" | "customer" | "supplier">("");
   const [modal, setModal] = useState<null | { mode: "create" } | { mode: "edit"; party: Party }>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [reminderLoadingId, setReminderLoadingId] = useState<string | null>(null);
+
+  async function sendReminder(party: Party) {
+    setReminderLoadingId(party.id);
+    try {
+      const bills = await listPartyBills(party.id);
+      const message = buildBillReminderMessage(
+        party.name,
+        bills.map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
+        formatCurrency(Number(party.cachedBalance)),
+      );
+      window.open(buildWhatsAppLink(party.phone!, message), "_blank", "noopener,noreferrer");
+    } finally {
+      setReminderLoadingId(null);
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["parties", search, typeFilter],
@@ -264,18 +281,15 @@ export function PartiesPage() {
                   <td className="px-4 py-2 text-right">
                     <div className="flex items-center justify-end gap-3">
                       {party.phone && Number(party.cachedBalance) > 0 && (
-                        <a
-                          href={buildWhatsAppLink(
-                            party.phone,
-                            buildBalanceReminderMessage(party.name, formatCurrency(Number(party.cachedBalance))),
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Send WhatsApp reminder"
-                          className="text-green-600 hover:text-green-700 dark:text-green-400"
+                        <button
+                          type="button"
+                          onClick={() => sendReminder(party)}
+                          disabled={reminderLoadingId === party.id}
+                          title="Send WhatsApp reminder (lists each pending bill)"
+                          className="text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
                         >
                           <MessageCircle size={16} />
-                        </a>
+                        </button>
                       )}
                       <button
                         onClick={() => {

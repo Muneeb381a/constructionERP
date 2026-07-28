@@ -1,3 +1,5 @@
+import { formatCurrency } from "./format";
+
 /** Normalizes a Pakistani phone number (03xx..., +923xx..., 923xx...) to the digits-only
  * international format wa.me expects (923xxxxxxxxx). Best-effort — falls back to the
  * stripped digits for anything already in another country's format. */
@@ -19,6 +21,31 @@ export function buildWhatsAppLink(phone: string, message: string): string {
 /** @param balance already-formatted currency string (e.g. from formatCurrency) — includes its own symbol */
 export function buildBalanceReminderMessage(partyName: string, balance: string): string {
   return `Assalam-o-Alaikum ${partyName}, yeh ek dosti yaad dahani hai: aap ka humare paas bakaya (outstanding) balance ${balance} hai. Barah-e-karam jald ada farmayein. Shukriya!`;
+}
+
+/**
+ * Itemized version — lists exactly which bills are still pending (and how much of each),
+ * not just the running total, so the customer can see what they're actually being asked
+ * to pay for. Falls back to the plain total-only message when there's nothing to itemize
+ * (e.g. an opening-balance-only account with no invoice history).
+ */
+export function buildBillReminderMessage(
+  partyName: string,
+  bills: { invoiceNo: string; date: string; balanceDue: number }[],
+  totalBalance: string,
+): string {
+  const pending = bills.filter((b) => b.balanceDue > 0.01).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  if (pending.length === 0) {
+    return buildBalanceReminderMessage(partyName, totalBalance);
+  }
+
+  const lines = pending.map((b) => {
+    const date = new Date(b.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    return `• ${b.invoiceNo} (${date}): ${formatCurrency(b.balanceDue)}`;
+  });
+
+  return `Assalam-o-Alaikum ${partyName}, yeh ek dosti yaad dahani hai — neeche diye gaye bills abhi tak pending hain:\n\n${lines.join("\n")}\n\nKul bakaya (total outstanding): ${totalBalance}\n\nBarah-e-karam jald ada farmayein. Shukriya!`;
 }
 
 /** @param balance already-formatted currency string — includes its own symbol */

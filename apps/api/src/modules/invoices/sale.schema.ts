@@ -7,6 +7,13 @@ export const createSaleInvoiceSchema = z.object({
   partyId: z.string().uuid().nullable().optional(),
   discount: z.coerce.number().nonnegative().optional(),
   overrideCreditLimit: z.boolean().optional(),
+  payment: z
+    .object({
+      method: z.enum(["cash", "bank_transfer"]),
+      amount: z.coerce.number().positive(),
+      note: z.string().nullable().optional(),
+    })
+    .optional(),
   items: z
     .array(
       z.object({

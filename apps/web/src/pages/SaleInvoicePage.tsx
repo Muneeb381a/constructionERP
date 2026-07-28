@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CloudOff, RefreshCw, User, PackagePlus, Receipt } from "lucide-react";
+import { CloudOff, RefreshCw, User, PackagePlus, Receipt, Banknote } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
@@ -32,19 +32,24 @@ export function SaleInvoicePage() {
   const { cart, addProduct, updateItem, removeItem, clear, subtotal } = useInvoiceCart(units, "salePrice");
   const [party, setParty] = useState<Party | null>(null);
   const [discount, setDiscount] = useState(0);
+  const [amountReceived, setAmountReceived] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [successInvoiceNo, setSuccessInvoiceNo] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [queuedOffline, setQueuedOffline] = useState(false);
 
   const offlineSync = useOfflineSalesSync();
 
   const total = round2(subtotal - discount);
+  const balanceAfterPayment = round2(total - amountReceived);
 
   function resetFormAfterSubmit() {
     clear();
     setParty(null);
     setDiscount(0);
+    setAmountReceived(0);
+    setPaymentMethod("cash");
     setSubmitError(null);
     setIdempotencyKey(crypto.randomUUID());
   }
@@ -65,7 +70,13 @@ export function SaleInvoicePage() {
   const mutation = useMutation({
     mutationFn: (input: CreateSaleInvoiceInput) => createSaleInvoice(input),
     onSuccess: (result) => {
-      setSuccessInvoiceNo(result.invoice.invoiceNo);
+      const due = round2(Number(result.invoice.totalAmount) - Number(result.payment?.amount ?? 0));
+      const paymentNote = result.payment
+        ? due > 0.01
+          ? ` — ${formatCurrency(Number(result.payment.amount))} received, ${formatCurrency(due)} still due.`
+          : ` — paid in full.`
+        : "";
+      setSuccessMessage(`Sale invoice ${result.invoice.invoiceNo} created.${paymentNote}`);
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       resetFormAfterSubmit();
     },
@@ -94,6 +105,7 @@ export function SaleInvoicePage() {
       partyId: party?.id ?? null,
       discount: discount || undefined,
       overrideCreditLimit: overrideCreditLimit || undefined,
+      payment: party && amountReceived > 0 ? { method: paymentMethod, amount: amountReceived } : undefined,
       items: cart.map((item) => ({
         productId: item.productId,
         unitId: item.unitId,
@@ -149,10 +161,10 @@ export function SaleInvoicePage() {
         </div>
       )}
 
-      {successInvoiceNo && (
+      {successMessage && (
         <div className="flex items-center justify-between rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
-          <span>Sale invoice {successInvoiceNo} created.</span>
-          <button onClick={() => setSuccessInvoiceNo(null)} className="font-medium hover:underline">
+          <span>{successMessage}</span>
+          <button onClick={() => setSuccessMessage(null)} className="font-medium hover:underline">
             Dismiss
           </button>
         </div>
@@ -187,7 +199,10 @@ export function SaleInvoicePage() {
               placeholder="Walk-in customer (search to bill on account)…"
               selected={party}
               onSelect={setParty}
-              onClear={() => setParty(null)}
+              onClear={() => {
+                setParty(null);
+                setAmountReceived(0);
+              }}
             />
           </section>
 
@@ -231,6 +246,53 @@ export function SaleInvoicePage() {
                 <span>{formatCurrency(total)}</span>
               </div>
             </div>
+
+            {party && total > 0 && (
+              <div className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+                <div className="flex items-center justify-between">
+                  <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    <Banknote size={13} />
+                    Received Now
+                  </h3>
+                  {amountReceived < total && (
+                    <button
+                      type="button"
+                      onClick={() => setAmountReceived(total)}
+                      className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      Full amount
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={total}
+                    value={amountReceived || ""}
+                    onChange={(e) => setAmountReceived(Math.min(total, Math.max(0, Number(e.target.value))))}
+                    placeholder="0.00"
+                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
+                    className="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+                {amountReceived > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {balanceAfterPayment > 0.01
+                      ? `Balance due after this sale: ${formatCurrency(balanceAfterPayment)}`
+                      : "Fully paid — nothing left on account."}
+                  </p>
+                )}
+              </div>
+            )}
 
             {submitError && (
               <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">

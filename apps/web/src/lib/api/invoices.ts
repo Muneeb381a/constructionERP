@@ -39,6 +39,11 @@ export type CreateSaleInvoiceInput = {
   partyId?: string | null;
   discount?: number;
   overrideCreditLimit?: boolean;
+  payment?: {
+    method: "cash" | "bank_transfer";
+    amount: number;
+    note?: string | null;
+  };
   items: {
     productId: string;
     unitId: number;
@@ -47,9 +52,20 @@ export type CreateSaleInvoiceInput = {
   }[];
 };
 
+export type Payment = {
+  id: string;
+  partyId: string;
+  invoiceId: string | null;
+  method: "cash" | "bank_transfer" | "cheque";
+  amount: string;
+  note: string | null;
+  createdAt: string;
+};
+
 export type CreateSaleInvoiceResult = {
   invoice: Invoice;
   items: InvoiceItem[];
+  payment: Payment | null;
   idempotentReplay: boolean;
 };
 

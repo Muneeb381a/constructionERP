@@ -6,7 +6,7 @@ import { Modal } from "../components/Modal";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
-import { buildBalanceReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
+import { buildBillReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
 import { useAuthStore } from "../store/authStore";
 import { getParty, getPartyPublicLink, type Party } from "../lib/api/parties";
 import { getPartyLedger, postLedgerAdjustment, postOpeningBalance } from "../lib/api/ledger";
@@ -356,6 +356,14 @@ export function PartyDetailPage() {
     enabled: !!id,
   });
 
+  // shares a cache entry with BillHistory's own query below — used here to itemize the
+  // WhatsApp reminder with exactly which bills are pending, not just the running total
+  const { data: billsForReminder } = useQuery({
+    queryKey: ["party-bills", id],
+    queryFn: () => listPartyBills(id!),
+    enabled: !!id,
+  });
+
   const chequeMutation = useMutation({
     mutationFn: ({ chequeId, status }: { chequeId: string; status: "cleared" | "bounced" }) => updateChequeStatus(chequeId, status),
     onSuccess: () => {
@@ -409,7 +417,11 @@ export function PartyDetailPage() {
           <a
             href={buildWhatsAppLink(
               party.phone,
-              buildBalanceReminderMessage(party.name, formatCurrency(Number(party.cachedBalance))),
+              buildBillReminderMessage(
+                party.name,
+                (billsForReminder ?? []).map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
+                formatCurrency(Number(party.cachedBalance)),
+              ),
             )}
             target="_blank"
             rel="noopener noreferrer"

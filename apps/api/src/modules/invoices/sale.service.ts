@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { auditLog, invoiceItems, invoices, parties } from "../../db/schema.js";
+import { auditLog, invoiceItems, invoices, parties, payments } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { adjustStock } from "../inventory/stock.service.js";
 import { postLedgerEntry } from "../ledger/ledger.service.js";
@@ -25,7 +26,8 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
     .limit(1);
   if (existing) {
     const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, existing.id));
-    return { invoice: existing, items, idempotentReplay: true };
+    const [existingPayment] = await db.select().from(payments).where(eq(payments.invoiceId, existing.id)).limit(1);
+    return { invoice: existing, items, payment: existingPayment ?? null, idempotentReplay: true };
   }
 
   return db.transaction(async (tx) => {
@@ -44,11 +46,21 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
     if (discount > subtotal) throw new HttpError(400, "discount cannot exceed the invoice subtotal");
     const totalAmount = roundMoney(subtotal - discount);
 
+    if (input.payment) {
+      if (!party) throw new HttpError(400, "A customer must be selected to record a payment");
+      if (input.payment.amount > totalAmount + 0.01) {
+        throw new HttpError(400, "Amount received cannot exceed the invoice total");
+      }
+    }
+    const amountReceived = input.payment?.amount ?? 0;
+
     let creditLimitOverridden = false;
     if (party) {
       const creditLimit = Number(party.creditLimit);
       if (creditLimit > 0) {
-        const projectedBalance = Number(party.cachedBalance) + totalAmount;
+        // net effect on the running balance — an advance taken in the same breath as the
+        // sale offsets it immediately, so it shouldn't count against the credit limit
+        const projectedBalance = Number(party.cachedBalance) + totalAmount - amountReceived;
         if (projectedBalance > creditLimit) {
           if (role === "cashier") {
             throw new HttpError(409, "This sale would exceed the customer's credit limit");
@@ -119,6 +131,31 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
       });
     }
 
+    let payment: typeof payments.$inferSelect | null = null;
+    if (input.payment && party && amountReceived > 0) {
+      [payment] = await tx
+        .insert(payments)
+        .values({
+          tenantId,
+          partyId: party.id,
+          invoiceId: invoice.id,
+          method: input.payment.method,
+          amount: amountReceived.toString(),
+          note: input.payment.note ?? null,
+          idempotencyKey: randomUUID(),
+        })
+        .returning();
+
+      await postLedgerEntry(tx, {
+        tenantId,
+        partyId: party.id,
+        direction: "credit",
+        amount: amountReceived,
+        sourceType: "payment",
+        sourceId: payment.id,
+      });
+    }
+
     if (creditLimitOverridden && party) {
       await tx.insert(auditLog).values({
         tenantId,
@@ -135,6 +172,6 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
       });
     }
 
-    return { invoice, items: insertedItems, idempotentReplay: false };
+    return { invoice, items: insertedItems, payment, idempotentReplay: false };
   });
 }
