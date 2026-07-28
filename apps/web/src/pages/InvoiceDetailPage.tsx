@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toPng } from "html-to-image";
@@ -119,6 +119,7 @@ export function InvoiceDetailPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [printWidth, setPrintWidth] = useState<"58mm" | "80mm">("80mm");
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -259,7 +260,7 @@ export function InvoiceDetailPage() {
             onClick={() => setShowShareModal(true)}
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            Share as Image
+            Share / Print
           </button>
           {(invoice.type === "sale" || invoice.type === "purchase") && invoice.status !== "void" && (
             <Link
@@ -379,10 +380,17 @@ export function InvoiceDetailPage() {
       )}
 
       {showShareModal && (
-        <Modal title="Share Invoice as Image" onClose={() => setShowShareModal(false)}>
+        <Modal title="Share / Print Invoice" onClose={() => setShowShareModal(false)}>
           <div className="space-y-4">
+            <div className="flex items-center justify-end gap-2 text-sm">
+              <label className="text-gray-500 dark:text-gray-400">Paper width</label>
+              <select value={printWidth} onChange={(e) => setPrintWidth(e.target.value as "58mm" | "80mm")} className="rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                <option value="80mm">80mm</option>
+                <option value="58mm">58mm</option>
+              </select>
+            </div>
             <div className="max-h-[60vh] overflow-auto rounded-md border border-gray-200 bg-gray-100 p-4 dark:border-gray-800 dark:bg-gray-950">
-              <div ref={receiptRef} className="mx-auto w-fit">
+              <div id="printable-receipt" ref={receiptRef} className="mx-auto w-fit" style={{ "--print-width": printWidth } as CSSProperties}>
                 <ReceiptImage
                   businessName={tenant?.businessName ?? "…"}
                   invoiceNo={invoice.invoiceNo}
@@ -398,7 +406,13 @@ export function InvoiceDetailPage() {
               </div>
             </div>
             {shareError && <p className="text-sm text-red-600 dark:text-red-400">{shareError}</p>}
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => window.print()}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Print Receipt
+              </button>
               <button
                 onClick={() => handleDownloadImage(invoice.invoiceNo)}
                 disabled={sharing}

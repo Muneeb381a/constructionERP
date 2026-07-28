@@ -55,3 +55,18 @@ export async function remove(req: Request, res: Response) {
   await partiesService.deleteParty(req.auth!.tenantId, parseId(req.params.id as string));
   res.status(204).send();
 }
+
+export async function getPublicLink(req: Request, res: Response) {
+  const token = await partiesService.getOrCreatePublicToken(req.auth!.tenantId, parseId(req.params.id as string));
+  res.json({ token });
+}
+
+export async function revokePublicLink(req: Request, res: Response) {
+  await partiesService.revokePublicToken(req.auth!.tenantId, parseId(req.params.id as string));
+  res.status(204).send();
+}
+
+export async function publicBalance(req: Request, res: Response) {
+  const result = await partiesService.getPublicBalanceByToken(req.params.token as string);
+  res.json(result);
+}

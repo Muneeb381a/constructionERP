@@ -75,6 +75,30 @@ export async function listProductConversions(productId: string) {
   return res.data;
 }
 
+export type BulkPriceUpdateInput = {
+  categoryId?: number;
+  productIds?: string[];
+  priceField: "salePrice" | "purchasePrice" | "both";
+  adjustmentType: "percentage" | "fixed";
+  adjustmentValue: number;
+};
+
+export type BulkPriceUpdateResult = {
+  updated: {
+    productId: string;
+    name: string;
+    oldSalePrice: string;
+    newSalePrice: string;
+    oldPurchasePrice: string;
+    newPurchasePrice: string;
+  }[];
+};
+
+export async function bulkUpdatePrices(input: BulkPriceUpdateInput) {
+  const res = await apiClient.post<BulkPriceUpdateResult>("/products/bulk-price-update", input);
+  return res.data;
+}
+
 export async function uploadProductImage(id: string, file: File) {
   const formData = new FormData();
   formData.append("image", file);

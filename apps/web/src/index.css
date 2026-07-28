@@ -8,3 +8,28 @@ body {
   margin: 0;
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
 }
+
+/* Thermal receipt printing — only #printable-receipt renders, sized to the paper width
+   set inline via --print-width (58mm or 80mm), everything else on the page is hidden. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible;
+  }
+  #printable-receipt {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--print-width, 80mm);
+  }
+  #printable-receipt > div {
+    width: 100% !important;
+  }
+  @page {
+    size: var(--print-width, 80mm) auto;
+    margin: 0;
+  }
+}

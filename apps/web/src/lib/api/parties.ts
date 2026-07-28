@@ -64,3 +64,32 @@ export async function updateParty(id: string, input: Partial<PartyInput>) {
   const res = await apiClient.patch<Party>(`/parties/${id}`, input);
   return res.data;
 }
+
+export async function getPartyPublicLink(id: string) {
+  const res = await apiClient.post<{ token: string }>(`/parties/${id}/public-link`);
+  return res.data;
+}
+
+export async function revokePartyPublicLink(id: string) {
+  await apiClient.delete(`/parties/${id}/public-link`);
+}
+
+export type PublicBalanceBill = {
+  invoiceNo: string;
+  date: string;
+  totalAmount: string;
+  balanceDue: number;
+  status: "paid" | "partial" | "unpaid" | "void";
+};
+
+export type PublicBalance = {
+  partyName: string;
+  balance: string;
+  balanceUpdatedAt: string | null;
+  bills: PublicBalanceBill[];
+};
+
+export async function getPublicBalance(token: string) {
+  const res = await apiClient.get<PublicBalance>(`/public/balance/${token}`);
+  return res.data;
+}

@@ -1,8 +1,12 @@
-import { and, desc, eq, ilike, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { categories, products, rateHistory, units } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
-import type { CreateProductInput, ListProductsQuery, UpdateProductInput } from "./products.schema.js";
+import type { BulkPriceUpdateInput, CreateProductInput, ListProductsQuery, UpdateProductInput } from "./products.schema.js";
+
+function roundMoney(n: number) {
+  return Math.round(n * 100) / 100;
+}
 
 async function assertCategoryInTenant(tenantId: string, categoryId: number | null | undefined) {
   if (categoryId == null) return;
@@ -100,6 +104,62 @@ export async function updateProduct(tenantId: string, productId: string, input: 
   }
 
   return updated;
+}
+
+/**
+ * Adjusts sale/purchase prices for a whole category (or an explicit product selection) in
+ * one action — steel and cement rates move weekly in this market, and re-editing every
+ * product by hand every time the mill announces a new rate isn't realistic for a shop owner.
+ */
+export async function bulkUpdatePrices(tenantId: string, input: BulkPriceUpdateInput) {
+  await assertCategoryInTenant(tenantId, input.categoryId);
+
+  const conditions = [eq(products.tenantId, tenantId), eq(products.isActive, true)];
+  if (input.productIds && input.productIds.length > 0) conditions.push(inArray(products.id, input.productIds));
+  else if (input.categoryId != null) conditions.push(eq(products.categoryId, input.categoryId));
+
+  const targets = await db.select().from(products).where(and(...conditions));
+  if (targets.length === 0) return { updated: [] };
+
+  const applyAdjustment = (current: number) => {
+    const next =
+      input.adjustmentType === "percentage" ? current * (1 + input.adjustmentValue / 100) : current + input.adjustmentValue;
+    return Math.max(0, roundMoney(next));
+  };
+
+  return db.transaction(async (tx) => {
+    const updated = [];
+    for (const product of targets) {
+      const updateSale = input.priceField === "salePrice" || input.priceField === "both";
+      const updatePurchase = input.priceField === "purchasePrice" || input.priceField === "both";
+
+      const newSalePrice = updateSale ? applyAdjustment(Number(product.salePrice)) : Number(product.salePrice);
+      const newPurchasePrice = updatePurchase ? applyAdjustment(Number(product.purchasePrice)) : Number(product.purchasePrice);
+
+      const [row] = await tx
+        .update(products)
+        .set({
+          salePrice: updateSale ? newSalePrice.toString() : undefined,
+          purchasePrice: updatePurchase ? newPurchasePrice.toString() : undefined,
+        })
+        .where(and(eq(products.id, product.id), eq(products.tenantId, tenantId)))
+        .returning();
+
+      if (updateSale && newSalePrice.toString() !== product.salePrice) {
+        await tx.insert(rateHistory).values({ productId: product.id, rate: newSalePrice.toString() });
+      }
+
+      updated.push({
+        productId: product.id,
+        name: product.name,
+        oldSalePrice: product.salePrice,
+        newSalePrice: row.salePrice,
+        oldPurchasePrice: product.purchasePrice,
+        newPurchasePrice: row.purchasePrice,
+      });
+    }
+    return { updated };
+  });
 }
 
 export async function getRateHistory(tenantId: string, productId: string) {

@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CloudOff, RefreshCw } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
 import { useInvoiceCart } from "../hooks/useInvoiceCart";
+import { useOfflineSalesSync } from "../hooks/useOfflineSalesSync";
 import { inputClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
@@ -13,6 +15,7 @@ import { listWarehouses } from "../lib/api/warehouses";
 import { listUnits } from "../lib/api/units";
 import { createSaleInvoice, type CreateSaleInvoiceInput } from "../lib/api/invoices";
 import { getParty, getTopCustomers, type Party } from "../lib/api/parties";
+import { isNetworkError, queueSale } from "../lib/offlineSalesQueue";
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
@@ -37,6 +40,9 @@ export function SaleInvoicePage() {
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successInvoiceNo, setSuccessInvoiceNo] = useState<string | null>(null);
+  const [queuedOffline, setQueuedOffline] = useState(false);
+
+  const offlineSync = useOfflineSalesSync();
 
   const effectiveBranchId = branchId || branches?.[0]?.id || "";
   const branchWarehouses = useMemo(
@@ -47,18 +53,40 @@ export function SaleInvoicePage() {
 
   const total = round2(subtotal - discount);
 
+  function resetFormAfterSubmit() {
+    clear();
+    setParty(null);
+    setDiscount(0);
+    setSubmitError(null);
+    setIdempotencyKey(crypto.randomUUID());
+  }
+
+  async function queueOffline(input: CreateSaleInvoiceInput) {
+    await queueSale({
+      idempotencyKey: input.idempotencyKey,
+      input,
+      queuedAt: new Date().toISOString(),
+      partyName: party?.name ?? null,
+      total,
+    });
+    await offlineSync.refresh();
+    setQueuedOffline(true);
+    resetFormAfterSubmit();
+  }
+
   const mutation = useMutation({
     mutationFn: (input: CreateSaleInvoiceInput) => createSaleInvoice(input),
     onSuccess: (result) => {
       setSuccessInvoiceNo(result.invoice.invoiceNo);
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
-      clear();
-      setParty(null);
-      setDiscount(0);
-      setSubmitError(null);
-      setIdempotencyKey(crypto.randomUUID());
+      resetFormAfterSubmit();
     },
-    onError: (err) => {
+    onError: (err, input) => {
+      // no server response at all — genuinely offline (or the connection dropped mid-request)
+      if (isNetworkError(err)) {
+        queueOffline(input);
+        return;
+      }
       setSubmitError(axiosErrorMessage(err) ?? "Failed to create sale");
     },
   });
@@ -70,7 +98,8 @@ export function SaleInvoicePage() {
 
   function submit(overrideCreditLimit: boolean) {
     setSubmitError(null);
-    mutation.mutate({
+    setQueuedOffline(false);
+    const input: CreateSaleInvoiceInput = {
       idempotencyKey,
       branchId: effectiveBranchId,
       warehouseId: effectiveWarehouseId,
@@ -83,7 +112,13 @@ export function SaleInvoicePage() {
         quantity: item.quantity,
         unitPrice: item.unitId === item.baseUnitId ? undefined : item.unitPrice,
       })),
-    });
+    };
+
+    if (!navigator.onLine) {
+      queueOffline(input);
+      return;
+    }
+    mutation.mutate(input);
   }
 
   if (!canSell) {
@@ -94,7 +129,37 @@ export function SaleInvoicePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Sale</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Sale</h1>
+        {(!offlineSync.isOnline || offlineSync.queued.length > 0) && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+            <CloudOff size={14} />
+            <span>
+              {!offlineSync.isOnline ? "Offline" : "Back online"}
+              {offlineSync.queued.length > 0 && ` — ${offlineSync.queued.length} sale${offlineSync.queued.length === 1 ? "" : "s"} queued`}
+            </span>
+            {offlineSync.isOnline && offlineSync.queued.length > 0 && (
+              <button
+                onClick={() => offlineSync.sync()}
+                disabled={offlineSync.syncing}
+                className="flex items-center gap-1 rounded border border-amber-400 px-1.5 py-0.5 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:hover:bg-amber-900/50"
+              >
+                <RefreshCw size={11} className={offlineSync.syncing ? "animate-spin" : ""} />
+                {offlineSync.syncing ? "Syncing…" : "Sync now"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {queuedOffline && (
+        <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+          <span>No connection — sale saved on this device and will sync automatically once you're back online.</span>
+          <button onClick={() => setQueuedOffline(false)} className="font-medium hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {successInvoiceNo && (
         <div className="flex items-center justify-between rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">

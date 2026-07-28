@@ -158,6 +158,7 @@ export const parties = pgTable("parties", {
   creditLimit: numeric("credit_limit", { precision: 14, scale: 2 }).default("0"),
   cachedBalance: numeric("cached_balance", { precision: 14, scale: 2 }).default("0"), // regenerated from ledger_entries, never incremented directly
   balanceUpdatedAt: timestamp("balance_updated_at", { withTimezone: true }),
+  publicToken: uuid("public_token").unique(), // lazily generated — lets a customer view their own balance without logging in
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

@@ -7,7 +7,17 @@ import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { listCategories } from "../lib/api/categories";
 import { listUnits } from "../lib/api/units";
-import { createProduct, getRateHistory, listProducts, updateProduct, type Product, type ProductInput } from "../lib/api/products";
+import {
+  bulkUpdatePrices,
+  createProduct,
+  getRateHistory,
+  listProducts,
+  updateProduct,
+  type BulkPriceUpdateInput,
+  type BulkPriceUpdateResult,
+  type Product,
+  type ProductInput,
+} from "../lib/api/products";
 
 const emptyForm: ProductInput = {
   name: "",
@@ -171,6 +181,184 @@ function ProductForm({
   );
 }
 
+function BulkPriceUpdateForm({ onDone }: { onDone: () => void }) {
+  const queryClient = useQueryClient();
+  const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: listCategories });
+  const [categoryId, setCategoryId] = useState<number | "">("");
+  const [priceField, setPriceField] = useState<BulkPriceUpdateInput["priceField"]>("salePrice");
+  const [adjustmentType, setAdjustmentType] = useState<BulkPriceUpdateInput["adjustmentType"]>("percentage");
+  const [adjustmentValue, setAdjustmentValue] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<BulkPriceUpdateResult | null>(null);
+
+  const { data: preview } = useQuery({
+    queryKey: ["products", "bulk-preview", categoryId],
+    queryFn: () => listProducts({ categoryId: categoryId === "" ? undefined : categoryId }),
+    enabled: categoryId !== "",
+  });
+
+  function applyPreview(current: number) {
+    const next = adjustmentType === "percentage" ? current * (1 + adjustmentValue / 100) : current + adjustmentValue;
+    return Math.max(0, Math.round(next * 100) / 100);
+  }
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      bulkUpdatePrices({
+        categoryId: categoryId === "" ? undefined : categoryId,
+        priceField,
+        adjustmentType,
+        adjustmentValue,
+      }),
+    onSuccess: (data) => {
+      setResult(data);
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to update prices"),
+  });
+
+  if (result) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Updated {result.updated.length} product{result.updated.length === 1 ? "" : "s"}.
+        </p>
+        <div className="max-h-64 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-800">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              <tr>
+                <th className="px-3 py-1.5 font-medium">Product</th>
+                <th className="px-3 py-1.5 text-right font-medium">Old Sale</th>
+                <th className="px-3 py-1.5 text-right font-medium">New Sale</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {result.updated.map((u) => (
+                <tr key={u.productId}>
+                  <td className="px-3 py-1.5">{u.name}</td>
+                  <td className="px-3 py-1.5 text-right text-gray-500 dark:text-gray-400">{formatCurrency(Number(u.oldSalePrice))}</td>
+                  <td className="px-3 py-1.5 text-right font-medium text-gray-900 dark:text-gray-100">
+                    {formatCurrency(Number(u.newSalePrice))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-end">
+          <button onClick={onDone} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Done
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
+      className="space-y-4"
+    >
+      <div>
+        <label className={labelClass}>Category</label>
+        <select
+          required
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
+          className={inputClass}
+        >
+          <option value="">Select category…</option>
+          {categories?.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className={labelClass}>Apply To</label>
+        <select value={priceField} onChange={(e) => setPriceField(e.target.value as typeof priceField)} className={inputClass}>
+          <option value="salePrice">Sale Price</option>
+          <option value="purchasePrice">Purchase Price</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Adjustment</label>
+          <select value={adjustmentType} onChange={(e) => setAdjustmentType(e.target.value as typeof adjustmentType)} className={inputClass}>
+            <option value="percentage">Percentage (%)</option>
+            <option value="fixed">Fixed Amount (Rs)</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Value {adjustmentType === "percentage" ? "(+/- %)" : "(+/- Rs)"}</label>
+          <input
+            type="number"
+            step="0.01"
+            required
+            value={adjustmentValue}
+            onChange={(e) => setAdjustmentValue(Number(e.target.value))}
+            className={inputClass}
+          />
+        </div>
+      </div>
+
+      {categoryId !== "" && preview && preview.data.length > 0 && (
+        <div>
+          <p className={labelClass}>Preview ({preview.data.length} products)</p>
+          <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-800">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                <tr>
+                  <th className="px-3 py-1.5 font-medium">Product</th>
+                  <th className="px-3 py-1.5 text-right font-medium">Current</th>
+                  <th className="px-3 py-1.5 text-right font-medium">New</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {preview.data.map((p) => {
+                  const current = Number(priceField === "purchasePrice" ? p.purchasePrice : p.salePrice);
+                  return (
+                    <tr key={p.id}>
+                      <td className="px-3 py-1.5">{p.name}</td>
+                      <td className="px-3 py-1.5 text-right text-gray-500 dark:text-gray-400">{formatCurrency(current)}</td>
+                      <td className="px-3 py-1.5 text-right font-medium text-gray-900 dark:text-gray-100">
+                        {formatCurrency(applyPreview(current))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {categoryId !== "" && preview && preview.data.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">No active products in this category.</p>
+      )}
+
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={categoryId === "" || mutation.isPending || !preview?.data.length}
+          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {mutation.isPending ? "Updating…" : "Apply Update"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function RateHistoryModalContent({ productId }: { productId: string }) {
   const { data, isLoading } = useQuery({ queryKey: ["rate-history", productId], queryFn: () => getRateHistory(productId) });
   if (isLoading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
@@ -181,7 +369,11 @@ export function ProductsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<
-    null | { mode: "create" } | { mode: "edit"; product: Product } | { mode: "rate-history"; product: Product }
+    | null
+    | { mode: "create" }
+    | { mode: "edit"; product: Product }
+    | { mode: "rate-history"; product: Product }
+    | { mode: "bulk-price" }
   >(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -222,12 +414,20 @@ export function ProductsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Products</h1>
-        <button
-          onClick={openCreate}
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Add Product
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setModal({ mode: "bulk-price" })}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Bulk Price Update
+          </button>
+          <button
+            onClick={openCreate}
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Add Product
+          </button>
+        </div>
       </div>
 
       <input
@@ -324,6 +524,11 @@ export function ProductsPage() {
       {modal?.mode === "rate-history" && (
         <Modal title={`Rate Trend — ${modal.product.name}`} onClose={() => setModal(null)}>
           <RateHistoryModalContent productId={modal.product.id} />
+        </Modal>
+      )}
+      {modal?.mode === "bulk-price" && (
+        <Modal title="Bulk Price Update" onClose={() => setModal(null)}>
+          <BulkPriceUpdateForm onDone={() => setModal(null)} />
         </Modal>
       )}
     </div>

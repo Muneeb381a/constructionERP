@@ -4,6 +4,7 @@ import { uploadBuffer } from "../../lib/cloudinary.js";
 import * as productsService from "./products.service.js";
 import * as conversionsService from "./conversions.service.js";
 import {
+  bulkPriceUpdateSchema,
   createConversionSchema,
   createProductSchema,
   listProductsQuerySchema,
@@ -44,6 +45,12 @@ export async function update(req: Request, res: Response) {
   const input = updateProductSchema.parse(req.body);
   const product = await productsService.updateProduct(req.auth!.tenantId, parseProductId(req.params.id as string), input);
   res.json(product);
+}
+
+export async function bulkUpdatePrices(req: Request, res: Response) {
+  const input = bulkPriceUpdateSchema.parse(req.body);
+  const result = await productsService.bulkUpdatePrices(req.auth!.tenantId, input);
+  res.json(result);
 }
 
 export async function uploadImage(req: Request, res: Response) {

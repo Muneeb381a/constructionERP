@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { MessageCircle } from "lucide-react";
+import { Link2, MessageCircle } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { buildBalanceReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
 import { useAuthStore } from "../store/authStore";
-import { getParty, type Party } from "../lib/api/parties";
+import { getParty, getPartyPublicLink, type Party } from "../lib/api/parties";
 import { getPartyLedger, postLedgerAdjustment, postOpeningBalance } from "../lib/api/ledger";
 import {
   createPayment,
@@ -336,6 +336,7 @@ export function PartyDetailPage() {
 
   const [modal, setModal] = useState<null | "payment" | "opening-balance" | "adjustment">(null);
   const [chequeError, setChequeError] = useState<string | null>(null);
+  const [shareLinkError, setShareLinkError] = useState<string | null>(null);
 
   const { data: party, isLoading: partyLoading } = useQuery({
     queryKey: ["party", id],
@@ -363,6 +364,17 @@ export function PartyDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["party-payments", id] });
     },
     onError: (err) => setChequeError(axiosErrorMessage(err) ?? "Failed to update cheque"),
+  });
+
+  const shareLinkMutation = useMutation({
+    mutationFn: () => getPartyPublicLink(id!),
+    onSuccess: ({ token }) => {
+      setShareLinkError(null);
+      const url = `${window.location.origin}/balance/${token}`;
+      const message = `Assalam-o-Alaikum ${party?.name}, aap apna balance yahan khud check kar sakte hain: ${url}`;
+      window.open(buildWhatsAppLink(party!.phone!, message), "_blank", "noopener,noreferrer");
+    },
+    onError: (err) => setShareLinkError(axiosErrorMessage(err) ?? "Failed to create link"),
   });
 
   if (partyLoading || !party) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>;
@@ -407,6 +419,16 @@ export function PartyDetailPage() {
             Send Reminder
           </a>
         )}
+        {party.type === "customer" && party.phone && (
+          <button
+            onClick={() => shareLinkMutation.mutate()}
+            disabled={shareLinkMutation.isPending}
+            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Link2 size={15} />
+            {shareLinkMutation.isPending ? "Preparing…" : "Share Balance Link"}
+          </button>
+        )}
         {canManageLedger && (
           <>
             <button
@@ -424,6 +446,7 @@ export function PartyDetailPage() {
           </>
         )}
       </div>
+      {shareLinkError && <p className="text-sm text-red-600 dark:text-red-400">{shareLinkError}</p>}
 
       <BillHistory party={party} />
 

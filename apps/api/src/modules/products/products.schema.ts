@@ -38,7 +38,21 @@ export const createConversionSchema = z.object({
   toBaseUnitFactor: z.coerce.number().positive(),
 });
 
+export const bulkPriceUpdateSchema = z
+  .object({
+    categoryId: z.number().int().positive().optional(),
+    productIds: z.array(z.string().uuid()).optional(),
+    priceField: z.enum(["salePrice", "purchasePrice", "both"]).default("salePrice"),
+    adjustmentType: z.enum(["percentage", "fixed"]),
+    adjustmentValue: z.coerce.number(),
+  })
+  .refine((data) => data.categoryId != null || (data.productIds && data.productIds.length > 0), {
+    message: "Provide either categoryId or productIds",
+    path: ["categoryId"],
+  });
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
 export type CreateConversionInput = z.infer<typeof createConversionSchema>;
+export type BulkPriceUpdateInput = z.infer<typeof bulkPriceUpdateSchema>;

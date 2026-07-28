@@ -9,6 +9,7 @@ import { productsRoutes } from "./modules/products/products.routes.js";
 import { warehousesRoutes } from "./modules/inventory/warehouses.routes.js";
 import { stockRoutes } from "./modules/inventory/stock.routes.js";
 import { partiesRoutes } from "./modules/parties/parties.routes.js";
+import { publicPartyRoutes } from "./modules/parties/public.routes.js";
 import { invoicesRoutes } from "./modules/invoices/invoices.routes.js";
 import { paymentsRoutes } from "./modules/payments/payments.routes.js";
 import { cashbookRoutes } from "./modules/cashbook/cashbook.routes.js";
@@ -49,6 +50,7 @@ app.use("/api/tenants", tenantsRoutes);
 app.use("/api/employees", employeesRoutes);
 app.use("/api/expenses", expensesRoutes);
 app.use("/api/audit-log", auditRoutes);
+app.use("/api/public", publicPartyRoutes);
 
 app.use(errorHandler);
 

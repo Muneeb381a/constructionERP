@@ -16,5 +16,8 @@ partiesRoutes.post("/", partiesController.create);
 partiesRoutes.patch("/:id", partiesController.update);
 partiesRoutes.delete("/:id", requireRole("owner", "manager"), partiesController.remove);
 
+partiesRoutes.post("/:id/public-link", requireRole("owner", "manager"), partiesController.getPublicLink);
+partiesRoutes.delete("/:id/public-link", requireRole("owner", "manager"), partiesController.revokePublicLink);
+
 partiesRoutes.use("/:partyId/ledger", ledgerRoutes);
 partiesRoutes.use("/:partyId/payments", partyPaymentsRoutes);

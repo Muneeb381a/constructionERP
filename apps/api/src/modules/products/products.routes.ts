@@ -9,6 +9,7 @@ export const productsRoutes = Router();
 productsRoutes.use(authenticate);
 
 productsRoutes.get("/", productsController.list);
+productsRoutes.post("/bulk-price-update", requireRole("owner", "manager"), productsController.bulkUpdatePrices);
 productsRoutes.get("/:id", productsController.get);
 productsRoutes.post("/", requireRole("owner", "manager"), productsController.create);
 productsRoutes.patch("/:id", requireRole("owner", "manager"), productsController.update);
