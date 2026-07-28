@@ -2,11 +2,10 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Modal } from "../components/Modal";
-import { inputClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { listWarehouses } from "../lib/api/warehouses";
+import { useShopContext } from "../hooks/useShopContext";
 import { listUnits } from "../lib/api/units";
 import { getProduct } from "../lib/api/products";
 import { getQuotation, updateQuotationStatus, convertQuotation, type QuotationStatus } from "../lib/api/quotations";
@@ -21,16 +20,13 @@ const STATUS_STYLES: Record<QuotationStatus, string> = {
 };
 
 function ConvertForm({ quotationId, onDone }: { quotationId: string; onDone: (invoiceId: string) => void }) {
-  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
-  const [warehouseId, setWarehouseId] = useState("");
+  const shop = useShopContext();
   const [error, setError] = useState<string | null>(null);
   const role = useAuthStore((s) => s.user?.role);
   const canOverride = role === "owner" || role === "manager";
 
-  const effectiveWarehouseId = warehouseId || warehouses?.[0]?.id || "";
-
   const mutation = useMutation({
-    mutationFn: (overrideCreditLimit: boolean) => convertQuotation(quotationId, { warehouseId: effectiveWarehouseId, overrideCreditLimit }),
+    mutationFn: (overrideCreditLimit: boolean) => convertQuotation(quotationId, { warehouseId: shop.warehouseId, overrideCreditLimit }),
     onSuccess: (result) => onDone(result.invoice.id),
     onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to convert"),
   });
@@ -39,16 +35,7 @@ function ConvertForm({ quotationId, onDone }: { quotationId: string; onDone: (in
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Warehouse to deduct stock from</label>
-        <select value={effectiveWarehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputClass}>
-          {warehouses?.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <p className="text-sm text-gray-600 dark:text-gray-400">This will create an invoice and deduct stock accordingly.</p>
 
       {error && (
         <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
@@ -73,7 +60,7 @@ function ConvertForm({ quotationId, onDone }: { quotationId: string; onDone: (in
             setError(null);
             mutation.mutate(false);
           }}
-          disabled={!effectiveWarehouseId || mutation.isPending}
+          disabled={!shop.warehouseId || mutation.isPending}
           className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {mutation.isPending ? "Converting…" : "Create Invoice"}

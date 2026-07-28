@@ -5,7 +5,7 @@ import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { listBranches } from "../lib/api/branches";
+import { useShopContext } from "../hooks/useShopContext";
 import { createCashBookEntry, getCashBookBalance, listCashBookEntries } from "../lib/api/cashbook";
 
 function AddEntryForm({ branchId, onDone }: { branchId: string; onDone: () => void }) {
@@ -68,23 +68,20 @@ export function CashBookPage() {
   const canView = user?.role === "owner" || user?.role === "manager" || user?.role === "accountant";
   const canAdd = user?.role === "owner" || user?.role === "manager";
 
-  const { data: branches } = useQuery({ queryKey: ["branches"], queryFn: listBranches, enabled: canView });
-  const [branchId, setBranchId] = useState(user?.branchId ?? "");
+  const shop = useShopContext();
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const effectiveBranchId = branchId || branches?.[0]?.id || "";
-
   const { data: balance } = useQuery({
-    queryKey: ["cash-book-balance", effectiveBranchId],
-    queryFn: () => getCashBookBalance(effectiveBranchId),
-    enabled: canView && !!effectiveBranchId,
+    queryKey: ["cash-book-balance", shop.branchId],
+    queryFn: () => getCashBookBalance(shop.branchId),
+    enabled: canView && !!shop.branchId,
   });
 
   const { data: entries, isLoading } = useQuery({
-    queryKey: ["cash-book", effectiveBranchId, page],
-    queryFn: () => listCashBookEntries({ branchId: effectiveBranchId, page }),
-    enabled: canView && !!effectiveBranchId,
+    queryKey: ["cash-book", shop.branchId, page],
+    queryFn: () => listCashBookEntries({ branchId: shop.branchId, page }),
+    enabled: canView && !!shop.branchId,
   });
 
   if (!canView) {
@@ -104,28 +101,14 @@ export function CashBookPage() {
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <select
-          value={effectiveBranchId}
-          onChange={(e) => {
-            setBranchId(e.target.value);
-            setPage(1);
-          }}
-          className={inputClass + " max-w-xs"}
-        >
-          {branches?.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-        {balance && (
+      {balance && (
+        <div className="flex justify-end">
           <div className="text-right">
             <p className="text-xs text-gray-500 dark:text-gray-400">Cash in Hand</p>
             <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(balance.balance)}</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
@@ -183,7 +166,7 @@ export function CashBookPage() {
 
       {showAddModal && (
         <Modal title="Add Cash Book Entry" onClose={() => setShowAddModal(false)}>
-          <AddEntryForm branchId={effectiveBranchId} onDone={() => setShowAddModal(false)} />
+          <AddEntryForm branchId={shop.branchId} onDone={() => setShowAddModal(false)} />
         </Modal>
       )}
     </div>

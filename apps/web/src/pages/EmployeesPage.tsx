@@ -6,7 +6,7 @@ import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { listBranches } from "../lib/api/branches";
+import { useShopContext } from "../hooks/useShopContext";
 import {
   createEmployee,
   getTodayAttendance,
@@ -92,12 +92,12 @@ const emptyForm: EmployeeInput = {
 
 function EmployeeForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
-  const { data: branches } = useQuery({ queryKey: ["branches"], queryFn: listBranches });
+  const shop = useShopContext();
   const [form, setForm] = useState<EmployeeInput>(emptyForm);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () => createEmployee({ ...form, branchId: form.branchId || branches![0].id }),
+    mutationFn: () => createEmployee({ ...form, branchId: shop.branchId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["employees-today-attendance"] });
@@ -132,16 +132,6 @@ function EmployeeForm({ onDone }: { onDone: () => void }) {
             className={inputClass}
           />
         </div>
-      </div>
-      <div>
-        <label className={labelClass}>Branch</label>
-        <select value={form.branchId || branches?.[0]?.id || ""} onChange={(e) => setForm({ ...form, branchId: e.target.value })} className={inputClass}>
-          {branches?.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
       </div>
       <div>
         <label className={labelClass}>Employment Type</label>

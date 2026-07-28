@@ -5,7 +5,7 @@ import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { listBranches } from "../lib/api/branches";
+import { useShopContext } from "../hooks/useShopContext";
 import { createExpense, getExpenseCategorySummary, listExpenses, type ExpenseInput } from "../lib/api/expenses";
 
 const COMMON_CATEGORIES = ["Rent", "Utilities", "Fuel", "Maintenance", "Office Supplies", "Miscellaneous"];
@@ -104,16 +104,14 @@ export function ExpensesPage() {
   const user = useAuthStore((s) => s.user);
   const canAdd = user?.role === "owner" || user?.role === "manager";
 
-  const { data: branches } = useQuery({ queryKey: ["branches"], queryFn: listBranches });
-  const [branchId, setBranchId] = useState(user?.branchId ?? "");
+  const shop = useShopContext();
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
-  const effectiveBranchId = branchId || branches?.[0]?.id || "";
 
   const { data: expenses, isLoading } = useQuery({
-    queryKey: ["expenses", effectiveBranchId, page],
-    queryFn: () => listExpenses({ branchId: effectiveBranchId, page }),
-    enabled: !!effectiveBranchId,
+    queryKey: ["expenses", shop.branchId, page],
+    queryFn: () => listExpenses({ branchId: shop.branchId, page }),
+    enabled: !!shop.branchId,
   });
 
   const { data: categorySummary } = useQuery({
@@ -144,21 +142,6 @@ export function ExpensesPage() {
           ))}
         </div>
       )}
-
-      <select
-        value={effectiveBranchId}
-        onChange={(e) => {
-          setBranchId(e.target.value);
-          setPage(1);
-        }}
-        className={inputClass + " max-w-xs"}
-      >
-        {branches?.map((b) => (
-          <option key={b.id} value={b.id}>
-            {b.name}
-          </option>
-        ))}
-      </select>
 
       {isLoading ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
@@ -224,7 +207,7 @@ export function ExpensesPage() {
 
       {showAddModal && (
         <Modal title="Record Expense" onClose={() => setShowAddModal(false)}>
-          <AddExpenseForm branchId={effectiveBranchId} onDone={() => setShowAddModal(false)} />
+          <AddExpenseForm branchId={shop.branchId} onDone={() => setShowAddModal(false)} />
         </Modal>
       )}
     </div>

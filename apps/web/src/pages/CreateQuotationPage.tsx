@@ -9,7 +9,7 @@ import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { listBranches } from "../lib/api/branches";
+import { useShopContext } from "../hooks/useShopContext";
 import { listUnits } from "../lib/api/units";
 import { createQuotation } from "../lib/api/quotations";
 import type { Party } from "../lib/api/parties";
@@ -23,10 +23,9 @@ export function CreateQuotationPage() {
   const user = useAuthStore((s) => s.user);
   const canCreate = user?.role === "owner" || user?.role === "manager" || user?.role === "cashier";
 
-  const { data: branches } = useQuery({ queryKey: ["branches"], queryFn: listBranches });
   const { data: units } = useQuery({ queryKey: ["units"], queryFn: listUnits });
+  const shop = useShopContext();
 
-  const [branchId, setBranchId] = useState<string>(user?.branchId ?? "");
   const { cart, addProduct, updateItem, removeItem, subtotal } = useInvoiceCart(units, "salePrice");
   const [party, setParty] = useState<Party | null>(null);
   const [discount, setDiscount] = useState(0);
@@ -34,13 +33,12 @@ export function CreateQuotationPage() {
   const [notes, setNotes] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const effectiveBranchId = branchId || branches?.[0]?.id || "";
   const total = round2(subtotal - discount);
 
   const mutation = useMutation({
     mutationFn: () =>
       createQuotation({
-        branchId: effectiveBranchId,
+        branchId: shop.branchId,
         partyId: party?.id ?? null,
         discount: discount || undefined,
         validUntil: validUntil || null,
@@ -64,21 +62,9 @@ export function CreateQuotationPage() {
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Quotation</h1>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className={labelClass}>Branch</label>
-          <select value={effectiveBranchId} onChange={(e) => setBranchId(e.target.value)} className={inputClass}>
-            {branches?.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass}>Valid Until (optional)</label>
-          <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={inputClass} />
-        </div>
+      <div>
+        <label className={labelClass}>Valid Until (optional)</label>
+        <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={inputClass + " max-w-xs"} />
       </div>
 
       <div>
@@ -131,7 +117,7 @@ export function CreateQuotationPage() {
       <div className="flex justify-end">
         <button
           onClick={() => mutation.mutate()}
-          disabled={cart.length === 0 || !effectiveBranchId || mutation.isPending}
+          disabled={cart.length === 0 || !shop.branchId || mutation.isPending}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {mutation.isPending ? "Saving…" : "Save Quotation"}

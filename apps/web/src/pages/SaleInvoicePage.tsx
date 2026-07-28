@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CloudOff, RefreshCw } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
@@ -6,12 +6,10 @@ import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
 import { useInvoiceCart } from "../hooks/useInvoiceCart";
 import { useOfflineSalesSync } from "../hooks/useOfflineSalesSync";
-import { inputClass } from "../lib/formStyles";
+import { useShopContext } from "../hooks/useShopContext";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { listBranches } from "../lib/api/branches";
-import { listWarehouses } from "../lib/api/warehouses";
 import { listUnits } from "../lib/api/units";
 import { createSaleInvoice, type CreateSaleInvoiceInput } from "../lib/api/invoices";
 import { getParty, getTopCustomers, type Party } from "../lib/api/parties";
@@ -27,13 +25,10 @@ export function SaleInvoicePage() {
   const canSell = user?.role === "owner" || user?.role === "manager" || user?.role === "cashier";
   const canOverrideRole = user?.role === "owner" || user?.role === "manager";
 
-  const { data: branches } = useQuery({ queryKey: ["branches"], queryFn: listBranches });
-  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
   const { data: units } = useQuery({ queryKey: ["units"], queryFn: listUnits });
   const { data: topCustomers } = useQuery({ queryKey: ["top-customers-quickpick"], queryFn: () => getTopCustomers(6) });
+  const shop = useShopContext();
 
-  const [branchId, setBranchId] = useState<string>(user?.branchId ?? "");
-  const [warehouseId, setWarehouseId] = useState<string>("");
   const { cart, addProduct, updateItem, removeItem, clear, subtotal } = useInvoiceCart(units, "salePrice");
   const [party, setParty] = useState<Party | null>(null);
   const [discount, setDiscount] = useState(0);
@@ -43,13 +38,6 @@ export function SaleInvoicePage() {
   const [queuedOffline, setQueuedOffline] = useState(false);
 
   const offlineSync = useOfflineSalesSync();
-
-  const effectiveBranchId = branchId || branches?.[0]?.id || "";
-  const branchWarehouses = useMemo(
-    () => (warehouses ?? []).filter((w) => w.branchId === effectiveBranchId),
-    [warehouses, effectiveBranchId],
-  );
-  const effectiveWarehouseId = warehouseId || branchWarehouses[0]?.id || "";
 
   const total = round2(subtotal - discount);
 
@@ -101,8 +89,8 @@ export function SaleInvoicePage() {
     setQueuedOffline(false);
     const input: CreateSaleInvoiceInput = {
       idempotencyKey,
-      branchId: effectiveBranchId,
-      warehouseId: effectiveWarehouseId,
+      branchId: shop.branchId,
+      warehouseId: shop.warehouseId,
       partyId: party?.id ?? null,
       discount: discount || undefined,
       overrideCreditLimit: overrideCreditLimit || undefined,
@@ -169,36 +157,6 @@ export function SaleInvoicePage() {
           </button>
         </div>
       )}
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Branch</label>
-          <select
-            value={effectiveBranchId}
-            onChange={(e) => {
-              setBranchId(e.target.value);
-              setWarehouseId("");
-            }}
-            className={inputClass}
-          >
-            {branches?.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Warehouse</label>
-          <select value={effectiveWarehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputClass}>
-            {branchWarehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
 
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Customer</label>
@@ -276,7 +234,7 @@ export function SaleInvoicePage() {
       <div className="flex justify-end">
         <button
           onClick={() => submit(false)}
-          disabled={cart.length === 0 || !effectiveWarehouseId || mutation.isPending}
+          disabled={cart.length === 0 || !shop.warehouseId || mutation.isPending}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {mutation.isPending ? "Saving…" : "Complete Sale"}

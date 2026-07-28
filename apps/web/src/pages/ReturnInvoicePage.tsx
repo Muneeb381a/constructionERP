@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { inputClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { listWarehouses } from "../lib/api/warehouses";
+import { useShopContext } from "../hooks/useShopContext";
 import { listUnits } from "../lib/api/units";
 import { getProduct } from "../lib/api/products";
 import { getInvoice, createReturnInvoice } from "../lib/api/invoices";
@@ -22,7 +21,7 @@ export function ReturnInvoicePage() {
   });
 
   const { data: units } = useQuery({ queryKey: ["units"], queryFn: listUnits });
-  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
+  const shop = useShopContext();
 
   const items = data?.items ?? [];
   const productIds = useMemo(() => [...new Set(items.map((i) => i.productId))], [items]);
@@ -42,16 +41,9 @@ export function ReturnInvoicePage() {
   }, [productIds, productQueries]);
 
   const [returnQty, setReturnQty] = useState<Record<number, number>>({});
-  const [warehouseId, setWarehouseId] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [successInvoiceNo, setSuccessInvoiceNo] = useState<string | null>(null);
-
-  const branchWarehouses = useMemo(
-    () => (warehouses ?? []).filter((w) => w.branchId === data?.invoice.branchId),
-    [warehouses, data],
-  );
-  const effectiveWarehouseId = warehouseId || branchWarehouses[0]?.id || "";
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -59,7 +51,7 @@ export function ReturnInvoicePage() {
         idempotencyKey,
         originalInvoiceId: id!,
         branchId: data!.invoice.branchId,
-        warehouseId: effectiveWarehouseId,
+        warehouseId: shop.warehouseId,
         items: items
           .filter((item) => (returnQty[item.id] ?? 0) > 0)
           .map((item) => ({ productId: item.productId, unitId: item.unitId, quantity: returnQty[item.id]! })),
@@ -114,17 +106,6 @@ export function ReturnInvoicePage() {
         <p className="text-sm text-gray-500 dark:text-gray-400">Only an owner or manager can process a purchase return.</p>
       ) : (
         <>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Warehouse</label>
-            <select value={effectiveWarehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputClass + " max-w-xs"}>
-              {branchWarehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
@@ -174,7 +155,7 @@ export function ReturnInvoicePage() {
                 setSubmitError(null);
                 mutation.mutate();
               }}
-              disabled={!hasAnyQuantity || !effectiveWarehouseId || mutation.isPending}
+              disabled={!hasAnyQuantity || !shop.warehouseId || mutation.isPending}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {mutation.isPending ? "Saving…" : "Process Return"}

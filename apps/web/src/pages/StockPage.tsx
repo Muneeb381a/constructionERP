@@ -5,8 +5,8 @@ import { Modal } from "../components/Modal";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
-import { listBranches } from "../lib/api/branches";
-import { createWarehouse, listWarehouses } from "../lib/api/warehouses";
+import { useShopContext } from "../hooks/useShopContext";
+import { listWarehouses } from "../lib/api/warehouses";
 import { adjustStock, createTransfer, listStockByWarehouse, listStockMovements, type StockByWarehouseRow } from "../lib/api/stock";
 import { computeStockLevel, MaterialStockVisual, StatusBadge } from "../components/inventory/MaterialStockVisual";
 
@@ -196,59 +196,6 @@ function MovementsList({ productId }: { productId: string }) {
   );
 }
 
-function AddWarehouseForm({ onDone }: { onDone: () => void }) {
-  const queryClient = useQueryClient();
-  const { data: branches } = useQuery({ queryKey: ["branches"], queryFn: listBranches });
-  const [branchId, setBranchId] = useState("");
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const mutation = useMutation({
-    mutationFn: () => createWarehouse({ branchId: branchId || branches![0].id, name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
-      onDone();
-    },
-    onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to create warehouse"),
-  });
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        mutation.mutate();
-      }}
-      className="space-y-4"
-    >
-      <div>
-        <label className={labelClass}>Branch</label>
-        <select value={branchId || branches?.[0]?.id || ""} onChange={(e) => setBranchId(e.target.value)} className={inputClass}>
-          {branches?.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className={labelClass}>Name</label>
-        <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-      </div>
-
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onDone} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-          Cancel
-        </button>
-        <button type="submit" disabled={mutation.isPending} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-          {mutation.isPending ? "Saving…" : "Add Warehouse"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 function StockCard({
   row,
   canAdjust,
@@ -260,7 +207,7 @@ function StockCard({
   canAdjust: boolean;
   onAdjust: () => void;
   onHistory: () => void;
-  onTransfer: () => void;
+  onTransfer?: () => void;
 }) {
   const quantity = Number(row.quantity);
   const minStock = Number(row.minStock ?? 0);
@@ -308,7 +255,7 @@ function StockCard({
             Adjust
           </button>
         )}
-        {canAdjust && (
+        {canAdjust && onTransfer && (
           <button onClick={onTransfer} className="text-blue-600 hover:underline dark:text-blue-400">
             Transfer
           </button>
@@ -322,20 +269,19 @@ export function StockPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canAdjust = role === "owner" || role === "manager";
 
+  const shop = useShopContext();
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
-  const [warehouseId, setWarehouseId] = useState("");
-  const effectiveWarehouseId = warehouseId || warehouses?.[0]?.id || "";
+  const hasMultipleWarehouses = (warehouses?.length ?? 0) > 1;
 
   const { data: stock, isLoading } = useQuery({
-    queryKey: ["stock-by-warehouse", effectiveWarehouseId],
-    queryFn: () => listStockByWarehouse(effectiveWarehouseId),
-    enabled: !!effectiveWarehouseId,
+    queryKey: ["stock-by-warehouse", shop.warehouseId],
+    queryFn: () => listStockByWarehouse(shop.warehouseId),
+    enabled: !!shop.warehouseId,
   });
 
   const [adjustRow, setAdjustRow] = useState<StockByWarehouseRow | null>(null);
   const [transferRow, setTransferRow] = useState<StockByWarehouseRow | null>(null);
   const [movementsProductId, setMovementsProductId] = useState<string | null>(null);
-  const [showAddWarehouse, setShowAddWarehouse] = useState(false);
   const [view, setView] = useState<"cards" | "table">("cards");
   const [search, setSearch] = useState("");
 
@@ -350,25 +296,9 @@ export function StockPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Stock</h1>
-        {canAdjust && (
-          <button
-            onClick={() => setShowAddWarehouse(true)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Add Warehouse
-          </button>
-        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select value={effectiveWarehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputClass + " max-w-xs"}>
-          {warehouses?.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-
         <div className="relative max-w-xs flex-1">
           <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -408,7 +338,7 @@ export function StockPage() {
               canAdjust={canAdjust}
               onAdjust={() => setAdjustRow(row)}
               onHistory={() => setMovementsProductId(row.productId)}
-              onTransfer={() => setTransferRow(row)}
+              onTransfer={hasMultipleWarehouses ? () => setTransferRow(row) : undefined}
             />
           ))}
           {filteredStock?.length === 0 && (
@@ -452,7 +382,7 @@ export function StockPage() {
                             Adjust
                           </button>
                         )}
-                        {canAdjust && (
+                        {canAdjust && hasMultipleWarehouses && (
                           <button onClick={() => setTransferRow(row)} className="text-blue-600 hover:underline dark:text-blue-400">
                             Transfer
                           </button>
@@ -487,11 +417,6 @@ export function StockPage() {
       {movementsProductId && (
         <Modal title="Stock Movements" onClose={() => setMovementsProductId(null)}>
           <MovementsList productId={movementsProductId} />
-        </Modal>
-      )}
-      {showAddWarehouse && (
-        <Modal title="Add Warehouse" onClose={() => setShowAddWarehouse(false)}>
-          <AddWarehouseForm onDone={() => setShowAddWarehouse(false)} />
         </Modal>
       )}
     </div>

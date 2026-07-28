@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { branches, refreshTokens, tenants, users } from "../../db/schema.js";
+import { branches, refreshTokens, tenants, users, warehouses } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { hashToken, signAccessToken, signRefreshToken, verifyRefreshToken } from "../../lib/jwt.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
@@ -50,6 +50,11 @@ export async function registerTenant(input: RegisterInput) {
       .insert(branches)
       .values({ tenantId: tenant.id, name: "Main Branch", isMain: true })
       .returning();
+
+    // Most tenants are a single shop with a single stockroom — auto-provision it so
+    // stock tracking works immediately without the owner ever having to think about
+    // "warehouses" as a concept.
+    await tx.insert(warehouses).values({ tenantId: tenant.id, branchId: branch.id, name: "Main Store" });
 
     const [user] = await tx
       .insert(users)
