@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { db, type DbOrTx } from "../../db/index.js";
 import { ledgerEntries, parties } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
@@ -76,4 +76,51 @@ export function listLedgerForParty(tenantId: string, partyId: string) {
     .from(ledgerEntries)
     .where(and(eq(ledgerEntries.tenantId, tenantId), eq(ledgerEntries.partyId, partyId)))
     .orderBy(desc(ledgerEntries.createdAt));
+}
+
+export type ListAllLedgerParams = {
+  partyType?: "customer" | "supplier";
+  search?: string;
+  page?: number;
+  limit?: number;
+};
+
+/** Tenant-wide ledger feed — every posting across every customer/supplier, newest first,
+ * for the standalone Ledger page (as opposed to one party's own history). */
+export async function listAllLedgerEntries(tenantId: string, params: ListAllLedgerParams) {
+  const page = Math.max(1, params.page ?? 1);
+  const limit = Math.min(100, Math.max(1, params.limit ?? 30));
+  const offset = (page - 1) * limit;
+
+  const conditions = [eq(ledgerEntries.tenantId, tenantId)];
+  if (params.partyType) conditions.push(eq(parties.type, params.partyType));
+  if (params.search) conditions.push(ilike(parties.name, `%${params.search}%`));
+  const where = and(...conditions);
+
+  const rows = await db
+    .select({
+      id: ledgerEntries.id,
+      partyId: ledgerEntries.partyId,
+      partyName: parties.name,
+      partyType: parties.type,
+      direction: ledgerEntries.direction,
+      amount: ledgerEntries.amount,
+      sourceType: ledgerEntries.sourceType,
+      sourceId: ledgerEntries.sourceId,
+      createdAt: ledgerEntries.createdAt,
+    })
+    .from(ledgerEntries)
+    .innerJoin(parties, eq(parties.id, ledgerEntries.partyId))
+    .where(where)
+    .orderBy(desc(ledgerEntries.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(ledgerEntries)
+    .innerJoin(parties, eq(parties.id, ledgerEntries.partyId))
+    .where(where);
+
+  return { data: rows, page, limit, total: count };
 }

@@ -18,6 +18,7 @@ import { CreateQuotationPage } from "./pages/CreateQuotationPage";
 import { QuotationDetailPage } from "./pages/QuotationDetailPage";
 import { StockPage } from "./pages/StockPage";
 import { CashBookPage } from "./pages/CashBookPage";
+import { LedgerPage } from "./pages/LedgerPage";
 import { EmployeesPage } from "./pages/EmployeesPage";
 import { EmployeeDetailPage } from "./pages/EmployeeDetailPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/parties/:id" element={<RedirectToCustomer />} />
           <Route path="/stock" element={<StockPage />} />
           <Route path="/cash-book" element={<CashBookPage />} />
+          <Route path="/ledger" element={<LedgerPage />} />
           <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/employees/:id" element={<EmployeeDetailPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />

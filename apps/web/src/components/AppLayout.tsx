@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   BarChart3,
+  BookText,
   FileText,
   HardHat,
   LayoutDashboard,
@@ -53,6 +54,7 @@ const navGroups = [
     items: [
       { to: "/stock", key: "stock", icon: Warehouse },
       { to: "/cash-book", key: "cashBook", icon: Wallet },
+      { to: "/ledger", key: "ledger", icon: BookText },
       { to: "/expenses", key: "expenses", icon: ReceiptText },
       { to: "/employees", key: "employees", icon: HardHat },
     ],

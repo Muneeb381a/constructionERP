@@ -18,6 +18,7 @@ export type Invoice = {
   status: "draft" | "confirmed" | "void";
   invoiceNo: string;
   partyId: string | null;
+  partyName: string | null;
   userId: string | null;
   originalInvoiceId: string | null;
   subtotal: string;

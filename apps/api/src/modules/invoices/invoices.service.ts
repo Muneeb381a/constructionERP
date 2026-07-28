@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { employees, invoiceItems, invoices } from "../../db/schema.js";
+import { employees, invoiceItems, invoices, parties } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import type { AssignDeliveryInput, ListInvoicesQuery } from "./invoices.schema.js";
 
@@ -15,7 +15,35 @@ export async function listInvoices(tenantId: string, query: ListInvoicesQuery) {
   const offset = (query.page - 1) * query.limit;
 
   const [rows, [{ count }]] = await Promise.all([
-    db.select().from(invoices).where(where).orderBy(desc(invoices.createdAt)).limit(query.limit).offset(offset),
+    db
+      .select({
+        id: invoices.id,
+        tenantId: invoices.tenantId,
+        branchId: invoices.branchId,
+        type: invoices.type,
+        status: invoices.status,
+        invoiceNo: invoices.invoiceNo,
+        partyId: invoices.partyId,
+        partyName: parties.name,
+        userId: invoices.userId,
+        originalInvoiceId: invoices.originalInvoiceId,
+        subtotal: invoices.subtotal,
+        discount: invoices.discount,
+        totalAmount: invoices.totalAmount,
+        idempotencyKey: invoices.idempotencyKey,
+        voidedAt: invoices.voidedAt,
+        voidedBy: invoices.voidedBy,
+        deliveryEmployeeId: invoices.deliveryEmployeeId,
+        deliveryStatus: invoices.deliveryStatus,
+        deliveredAt: invoices.deliveredAt,
+        createdAt: invoices.createdAt,
+      })
+      .from(invoices)
+      .leftJoin(parties, eq(parties.id, invoices.partyId))
+      .where(where)
+      .orderBy(desc(invoices.createdAt))
+      .limit(query.limit)
+      .offset(offset),
     db.select({ count: sql<number>`count(*)::int` }).from(invoices).where(where),
   ]);
 

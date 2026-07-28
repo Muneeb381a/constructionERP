@@ -88,6 +88,7 @@ export function InvoicesListPage() {
               <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                 <tr>
                   <th className="px-4 py-2 font-medium">Invoice No</th>
+                  <th className="px-4 py-2 font-medium">Customer / Supplier</th>
                   <th className="px-4 py-2 font-medium">Type</th>
                   <th className="px-4 py-2 font-medium">Date</th>
                   <th className="px-4 py-2 font-medium">Total</th>
@@ -102,6 +103,15 @@ export function InvoicesListPage() {
                         {inv.invoiceNo}
                       </Link>
                     </td>
+                    <td className="px-4 py-2">
+                      {inv.partyId ? (
+                        <Link to={`/customers/${inv.partyId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                          {inv.partyName}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">Walk-in</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{TYPE_LABELS[inv.type]}</td>
                     <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{new Date(inv.createdAt).toLocaleString()}</td>
                     <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{formatCurrency(Number(inv.totalAmount))}</td>
@@ -112,7 +122,7 @@ export function InvoicesListPage() {
                 ))}
                 {data?.data.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={6} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
                       No invoices found.
                     </td>
                   </tr>

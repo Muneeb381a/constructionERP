@@ -5,6 +5,18 @@ import * as ledgerService from "./ledger.service.js";
 import * as partiesService from "../parties/parties.service.js";
 import { postManualEntrySchema } from "./ledger.schema.js";
 
+export async function listAll(req: Request, res: Response) {
+  const tenantId = req.auth!.tenantId;
+  const { partyType, search, page, limit } = req.query;
+  const result = await ledgerService.listAllLedgerEntries(tenantId, {
+    partyType: partyType === "customer" || partyType === "supplier" ? partyType : undefined,
+    search: typeof search === "string" ? search : undefined,
+    page: page ? Number(page) : undefined,
+    limit: limit ? Number(limit) : undefined,
+  });
+  res.json(result);
+}
+
 export async function history(req: Request, res: Response) {
   const tenantId = req.auth!.tenantId;
   const partyId = req.params.partyId as string;
