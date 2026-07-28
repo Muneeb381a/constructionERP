@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CloudOff, RefreshCw } from "lucide-react";
+import { CloudOff, RefreshCw, User, PackagePlus, Receipt } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
@@ -158,87 +158,103 @@ export function SaleInvoicePage() {
         </div>
       )}
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Customer</label>
-        {!party && topCustomers && topCustomers.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {topCustomers.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => selectTopCustomer(c.id)}
-                className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-blue-700 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
-              >
-                {c.name}
-                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                  {c.orderCount}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-        <PartyPicker
-          type="customer"
-          placeholder="Walk-in customer (search to bill on account)…"
-          selected={party}
-          onSelect={setParty}
-          onClear={() => setParty(null)}
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Add Item</label>
-        <ProductPicker onSelect={addProduct} />
-      </div>
-
-      <CartTable cart={cart} onUpdate={updateItem} onRemove={removeItem} />
-
-      <div className="flex justify-end">
-        <div className="w-full max-w-xs space-y-2 text-sm">
-          <div className="flex justify-between text-gray-600 dark:text-gray-400">
-            <span>Subtotal</span>
-            <span>{formatCurrency(subtotal)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="text-gray-600 dark:text-gray-400">Discount</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={discount}
-              onChange={(e) => setDiscount(Number(e.target.value))}
-              className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <User size={16} className="text-gray-400" />
+              Customer
+            </h2>
+            {!party && topCustomers && topCustomers.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {topCustomers.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => selectTopCustomer(c.id)}
+                    className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-blue-700 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+                  >
+                    {c.name}
+                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                      {c.orderCount}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <PartyPicker
+              type="customer"
+              placeholder="Walk-in customer (search to bill on account)…"
+              selected={party}
+              onSelect={setParty}
+              onClear={() => setParty(null)}
             />
-          </div>
-          <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
-            <span>Total</span>
-            <span>{formatCurrency(total)}</span>
-          </div>
-        </div>
-      </div>
+          </section>
 
-      {submitError && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
-          <p>{submitError}</p>
-          {canOverride && (
+          <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <PackagePlus size={16} className="text-gray-400" />
+              Items
+            </h2>
+            <ProductPicker onSelect={addProduct} />
+            <div className="mt-3">
+              <CartTable cart={cart} onUpdate={updateItem} onRemove={removeItem} />
+            </div>
+          </section>
+        </div>
+
+        <div className="lg:col-span-1">
+          <div className="sticky top-6 space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <Receipt size={16} className="text-gray-400" />
+              Order Summary
+            </h2>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-gray-600 dark:text-gray-400">Discount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={discount}
+                  onChange={(e) => setDiscount(Number(e.target.value))}
+                  className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+              <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
+                <span>Total</span>
+                <span>{formatCurrency(total)}</span>
+              </div>
+            </div>
+
+            {submitError && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                <p>{submitError}</p>
+                {canOverride && (
+                  <button
+                    onClick={() => submit(true)}
+                    className="mt-2 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Proceed anyway (will be audit-logged)
+                  </button>
+                )}
+              </div>
+            )}
+
             <button
-              onClick={() => submit(true)}
-              className="mt-2 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+              onClick={() => submit(false)}
+              disabled={cart.length === 0 || !shop.warehouseId || mutation.isPending}
+              className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Proceed anyway (will be audit-logged)
+              {mutation.isPending ? "Saving…" : `Complete Sale · ${formatCurrency(total)}`}
             </button>
-          )}
+          </div>
         </div>
-      )}
-
-      <div className="flex justify-end">
-        <button
-          onClick={() => submit(false)}
-          disabled={cart.length === 0 || !shop.warehouseId || mutation.isPending}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {mutation.isPending ? "Saving…" : "Complete Sale"}
-        </button>
       </div>
     </div>
   );

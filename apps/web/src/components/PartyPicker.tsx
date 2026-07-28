@@ -34,7 +34,6 @@ function QuickAddForm({
 
   return (
     <form
-      onMouseDown={(e) => e.preventDefault()}
       onSubmit={(e) => {
         e.preventDefault();
         mutation.mutate();
@@ -130,7 +129,13 @@ export function PartyPicker({
           setAdding(false);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => {
+          // While the quick-add form is open, its own Name/Phone fields legitimately steal
+          // focus (they're real inputs, not mousedown-guarded buttons) — don't let that blur
+          // close the dropdown out from under the user mid-fill.
+          if (adding) return;
+          setTimeout(() => setOpen(false), 150);
+        }}
         className={inputClass}
       />
       {open && search && data && (
