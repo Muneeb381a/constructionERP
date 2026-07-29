@@ -435,21 +435,22 @@ export function PartyDetailPage() {
         ← Back to Customers
       </Link>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${
-                isCustomer
-                  ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
-                  : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
-              }`}
-            >
-              {initials(party.name)}
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{party.name}</h1>
-              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* sidebar — profile, balance, actions */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-6 space-y-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div
+                className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-xl font-semibold ${
+                  isCustomer
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+                    : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
+                }`}
+              >
+                {initials(party.name)}
+              </div>
+              <h1 className="mt-3 text-lg font-semibold text-gray-900 dark:text-gray-100">{party.name}</h1>
+              <div className="mt-1.5 flex items-center justify-center gap-1.5">
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
                     isCustomer
@@ -459,193 +460,206 @@ export function PartyDetailPage() {
                 >
                   {party.type}
                 </span>
-                {party.phone && <span>{party.phone}</span>}
-              </p>
+                {party.phone && <span className="text-sm text-gray-500 dark:text-gray-400">{party.phone}</span>}
+              </div>
+            </div>
+
+            <div
+              className={`rounded-2xl p-5 text-white shadow-sm ${
+                balance <= 0.01
+                  ? "bg-linear-to-br from-gray-500 to-gray-700"
+                  : isCustomer
+                    ? "bg-linear-to-br from-blue-600 to-blue-800"
+                    : "bg-linear-to-br from-orange-500 to-orange-700"
+              }`}
+            >
+              <p className="text-sm font-medium text-white/80">{balanceLabel}</p>
+              <p className="mt-1 text-3xl font-semibold tracking-tight">{formatCurrency(balance)}</p>
+              {Number(party.creditLimit) > 0 && (
+                <p className="mt-2 text-xs text-white/70">Credit limit {formatCurrency(Number(party.creditLimit))}</p>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <button
+                onClick={() => setModal("payment")}
+                className="w-full rounded-md bg-blue-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Record Payment
+              </button>
+              {party.phone && balance > 0.01 && (
+                <a
+                  href={buildWhatsAppLink(
+                    party.phone,
+                    buildBillReminderMessage(
+                      party.name,
+                      (billsForReminder ?? []).map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
+                      formatCurrency(balance),
+                    ),
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-green-300 px-3 py-2.5 text-sm font-medium text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+                >
+                  <MessageCircle size={15} />
+                  Send Reminder
+                </a>
+              )}
+              {isCustomer && party.phone && (
+                <button
+                  onClick={() => shareLinkMutation.mutate()}
+                  disabled={shareLinkMutation.isPending}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <Link2 size={15} />
+                  {shareLinkMutation.isPending ? "Preparing…" : "Share Balance Link"}
+                </button>
+              )}
+              {shareLinkError && <p className="text-sm text-red-600 dark:text-red-400">{shareLinkError}</p>}
+
+              {canManageLedger && (
+                <div className="flex items-center justify-center gap-3 pt-1 text-xs text-gray-400 dark:text-gray-500">
+                  <button onClick={() => setModal("opening-balance")} className="hover:text-gray-600 hover:underline dark:hover:text-gray-300">
+                    Opening Balance
+                  </button>
+                  <span>·</span>
+                  <button onClick={() => setModal("adjustment")} className="hover:text-gray-600 hover:underline dark:hover:text-gray-300">
+                    Ledger Adjustment
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{balanceLabel}</p>
-            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(balance)}</p>
-            {Number(party.creditLimit) > 0 && (
-              <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Credit limit {formatCurrency(Number(party.creditLimit))}</p>
+        </div>
+
+        {/* main — history */}
+        <div className="space-y-6 lg:col-span-2">
+          <BillHistory party={party} />
+
+          <div>
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <Wallet size={16} className="text-gray-400" />
+              Payments
+            </h2>
+            {chequeError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{chequeError}</p>}
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Date</th>
+                    <th className="px-4 py-2.5 font-medium">Applied To</th>
+                    <th className="px-4 py-2.5 font-medium">Method</th>
+                    <th className="px-4 py-2.5 font-medium">Amount</th>
+                    <th className="px-4 py-2.5 font-medium">Cheque</th>
+                    <th className="px-4 py-2.5"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {paymentsList?.map((p) => (
+                    <tr key={p.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                      <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{new Date(p.createdAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
+                        {p.invoiceId && p.invoiceNo ? (
+                          <Link to={`/invoices/${p.invoiceId}`} className="text-blue-600 hover:underline dark:text-blue-400">
+                            {p.invoiceNo}
+                          </Link>
+                        ) : (
+                          <span className="italic">On Account</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 capitalize text-gray-600 dark:text-gray-400">{p.method.replace("_", " ")}</td>
+                      <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(p.amount))}</td>
+                      <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
+                        {p.cheque ? `${p.cheque.chequeNo} · ${p.cheque.status}` : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {p.cheque?.status === "pending" && canManageCheques && (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                setChequeError(null);
+                                chequeMutation.mutate({ chequeId: p.cheque!.id, status: "cleared" });
+                              }}
+                              className="text-green-600 hover:underline dark:text-green-400"
+                            >
+                              Clear
+                            </button>
+                            <button
+                              onClick={() => {
+                                setChequeError(null);
+                                chequeMutation.mutate({ chequeId: p.cheque!.id, status: "bounced" });
+                              }}
+                              className="text-red-600 hover:underline dark:text-red-400"
+                            >
+                              Bounce
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {paymentsList?.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No payments recorded yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <BookText size={16} className="text-gray-400" />
+              Ledger History
+            </h2>
+            {ledgerLoading ? (
+              <Loader />
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+                    <tr>
+                      <th className="px-4 py-2.5 font-medium">Date</th>
+                      <th className="px-4 py-2.5 font-medium">Source</th>
+                      <th className="px-4 py-2.5 font-medium">Direction</th>
+                      <th className="px-4 py-2.5 font-medium">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {ledger?.entries.map((entry) => (
+                      <tr key={entry.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                        <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{new Date(entry.createdAt).toLocaleDateString()}</td>
+                        <td className="px-4 py-2.5 capitalize text-gray-600 dark:text-gray-400">{entry.sourceType.replace("_", " ")}</td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                              entry.direction === "debit"
+                                ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                : "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            }`}
+                          >
+                            {entry.direction}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(entry.amount))}</td>
+                      </tr>
+                    ))}
+                    {ledger?.entries.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                          No ledger history yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setModal("payment")} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
-            Record Payment
-          </button>
-          {party.phone && balance > 0.01 && (
-            <a
-              href={buildWhatsAppLink(
-                party.phone,
-                buildBillReminderMessage(
-                  party.name,
-                  (billsForReminder ?? []).map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
-                  formatCurrency(balance),
-                ),
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-md border border-green-300 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
-            >
-              <MessageCircle size={15} />
-              Send Reminder
-            </a>
-          )}
-          {isCustomer && party.phone && (
-            <button
-              onClick={() => shareLinkMutation.mutate()}
-              disabled={shareLinkMutation.isPending}
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              <Link2 size={15} />
-              {shareLinkMutation.isPending ? "Preparing…" : "Share Balance Link"}
-            </button>
-          )}
-        </div>
-
-        {canManageLedger && (
-          <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400">
-            <button onClick={() => setModal("opening-balance")} className="hover:text-gray-700 hover:underline dark:hover:text-gray-300">
-              Opening Balance
-            </button>
-            <span className="text-gray-300 dark:text-gray-700">·</span>
-            <button onClick={() => setModal("adjustment")} className="hover:text-gray-700 hover:underline dark:hover:text-gray-300">
-              Ledger Adjustment
-            </button>
-          </div>
-        )}
-      </div>
-      {shareLinkError && <p className="text-sm text-red-600 dark:text-red-400">{shareLinkError}</p>}
-
-      <BillHistory party={party} />
-
-      <div>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-          <Wallet size={16} className="text-gray-400" />
-          Payments
-        </h2>
-        {chequeError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{chequeError}</p>}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
-              <tr>
-                <th className="px-4 py-2.5 font-medium">Date</th>
-                <th className="px-4 py-2.5 font-medium">Applied To</th>
-                <th className="px-4 py-2.5 font-medium">Method</th>
-                <th className="px-4 py-2.5 font-medium">Amount</th>
-                <th className="px-4 py-2.5 font-medium">Cheque</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {paymentsList?.map((p) => (
-                <tr key={p.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
-                  <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{new Date(p.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                    {p.invoiceId && p.invoiceNo ? (
-                      <Link to={`/invoices/${p.invoiceId}`} className="text-blue-600 hover:underline dark:text-blue-400">
-                        {p.invoiceNo}
-                      </Link>
-                    ) : (
-                      <span className="italic">On Account</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 capitalize text-gray-600 dark:text-gray-400">{p.method.replace("_", " ")}</td>
-                  <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(p.amount))}</td>
-                  <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
-                    {p.cheque ? `${p.cheque.chequeNo} · ${p.cheque.status}` : "—"}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    {p.cheque?.status === "pending" && canManageCheques && (
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setChequeError(null);
-                            chequeMutation.mutate({ chequeId: p.cheque!.id, status: "cleared" });
-                          }}
-                          className="text-green-600 hover:underline dark:text-green-400"
-                        >
-                          Clear
-                        </button>
-                        <button
-                          onClick={() => {
-                            setChequeError(null);
-                            chequeMutation.mutate({ chequeId: p.cheque!.id, status: "bounced" });
-                          }}
-                          className="text-red-600 hover:underline dark:text-red-400"
-                        >
-                          Bounce
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {paymentsList?.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                    No payments recorded yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-          <BookText size={16} className="text-gray-400" />
-          Ledger History
-        </h2>
-        {ledgerLoading ? (
-          <Loader />
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Date</th>
-                  <th className="px-4 py-2.5 font-medium">Source</th>
-                  <th className="px-4 py-2.5 font-medium">Direction</th>
-                  <th className="px-4 py-2.5 font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {ledger?.entries.map((entry) => (
-                  <tr key={entry.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
-                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{new Date(entry.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-2.5 capitalize text-gray-600 dark:text-gray-400">{entry.sourceType.replace("_", " ")}</td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                          entry.direction === "debit"
-                            ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                            : "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                        }`}
-                      >
-                        {entry.direction}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(entry.amount))}</td>
-                  </tr>
-                ))}
-                {ledger?.entries.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No ledger history yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
 
       {modal === "payment" && (
