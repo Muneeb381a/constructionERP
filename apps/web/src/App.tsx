@@ -20,6 +20,7 @@ import { StockPage } from "./pages/StockPage";
 import { CashBookPage } from "./pages/CashBookPage";
 import { LedgerPage } from "./pages/LedgerPage";
 import { ClosingPage } from "./pages/ClosingPage";
+import { EstimatorPage } from "./pages/EstimatorPage";
 import { EmployeesPage } from "./pages/EmployeesPage";
 import { EmployeeDetailPage } from "./pages/EmployeeDetailPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/cash-book" element={<CashBookPage />} />
           <Route path="/ledger" element={<LedgerPage />} />
           <Route path="/closing" element={<ClosingPage />} />
+          <Route path="/estimator" element={<EstimatorPage />} />
           <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/employees/:id" element={<EmployeeDetailPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />

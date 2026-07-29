@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
@@ -12,7 +12,9 @@ import { useAuthStore } from "../store/authStore";
 import { useShopContext } from "../hooks/useShopContext";
 import { listUnits } from "../lib/api/units";
 import { createQuotation } from "../lib/api/quotations";
+import { getProduct } from "../lib/api/products";
 import type { Party } from "../lib/api/parties";
+import type { EstimateQuotationState } from "./EstimatorPage";
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
@@ -20,6 +22,7 @@ function round2(n: number) {
 
 export function CreateQuotationPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const canCreate = user?.role === "owner" || user?.role === "manager" || user?.role === "cashier";
 
@@ -32,6 +35,27 @@ export function CreateQuotationPage() {
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const estimateHandled = useRef(false);
+
+  // Arrives here via router state from the Material Estimator once a shop assistant links
+  // calculated quantities to real products.
+  useEffect(() => {
+    const state = location.state as EstimateQuotationState | null;
+    if (!state?.estimate || estimateHandled.current) return;
+    estimateHandled.current = true;
+
+    setEstimateLoading(true);
+    (async () => {
+      for (const item of state.estimate.items) {
+        const product = await getProduct(item.productId);
+        await addProduct(product, { quantity: item.quantity, unitId: item.unitId });
+      }
+      setEstimateLoading(false);
+      navigate(location.pathname, { replace: true, state: null });
+    })();
+    // deliberately runs once on mount only, mirroring SaleInvoicePage's repeat-order pre-fill
+  }, []);
 
   const total = round2(subtotal - discount);
 
@@ -61,6 +85,12 @@ export function CreateQuotationPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Quotation</h1>
+
+      {estimateLoading && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+          Loading materials from the estimator…
+        </div>
+      )}
 
       <div>
         <label className={labelClass}>Valid Until (optional)</label>

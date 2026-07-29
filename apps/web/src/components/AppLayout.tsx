@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   BarChart3,
   BookText,
+  Calculator,
   ClipboardCheck,
   FileText,
   HardHat,
@@ -41,6 +42,7 @@ const navGroups = [
       { to: "/purchase", key: "newPurchase", icon: Truck },
       { to: "/invoices", key: "invoices", icon: Receipt },
       { to: "/quotations", key: "quotations", icon: FileText },
+      { to: "/estimator", key: "estimator", icon: Calculator },
     ],
   },
   {

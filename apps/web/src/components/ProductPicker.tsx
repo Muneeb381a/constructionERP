@@ -4,8 +4,14 @@ import { listProducts, type Product } from "../lib/api/products";
 import { inputClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
 
-export function ProductPicker({ onSelect }: { onSelect: (product: Product) => void }) {
-  const [search, setSearch] = useState("");
+export function ProductPicker({
+  onSelect,
+  initialSearch,
+}: {
+  onSelect: (product: Product) => void;
+  initialSearch?: string;
+}) {
+  const [search, setSearch] = useState(initialSearch ?? "");
   const [open, setOpen] = useState(false);
 
   const { data } = useQuery({
