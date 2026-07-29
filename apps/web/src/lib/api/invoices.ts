@@ -123,6 +123,11 @@ export async function fetchInvoicePdf(id: string) {
   return res.data as Blob;
 }
 
+export async function fetchDeliveryChallanPdf(id: string) {
+  const res = await apiClient.get(`/invoices/${id}/challan.pdf`, { responseType: "blob" });
+  return res.data as Blob;
+}
+
 export type CreateReturnInvoiceInput = {
   idempotencyKey: string;
   originalInvoiceId: string;

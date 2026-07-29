@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { BookText, ChevronRight, HandCoins, Landmark, MessageCircle, Search } from "lucide-react";
+import { BookText, BellRing, ChevronRight, Download, HandCoins, Landmark, MessageCircle, Search } from "lucide-react";
 import { Loader } from "../components/Loader";
 import { formatCurrency } from "../lib/format";
-import { buildBillReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
+import { exportToCsv } from "../lib/csv";
+import { isReminderDue } from "../lib/reminders";
+import { useSendReminder } from "../hooks/useSendReminder";
 import { useAuthStore } from "../store/authStore";
-import { getAgingReport, type AgingRow } from "../lib/api/reports";
-import { listPartyBills } from "../lib/api/payments";
+import { getAgingReport } from "../lib/api/reports";
+import { getMyTenant } from "../lib/api/tenants";
 
 function initials(name: string) {
   return name
@@ -25,7 +27,8 @@ export function LedgerPage() {
 
   const [partyType, setPartyType] = useState<"customer" | "supplier">("customer");
   const [search, setSearch] = useState("");
-  const [reminderLoadingId, setReminderLoadingId] = useState<string | null>(null);
+  const [onlyDue, setOnlyDue] = useState(false);
+  const { sendReminder, loadingId: reminderLoadingId } = useSendReminder();
 
   const { data, isLoading } = useQuery({
     queryKey: ["reports-aging", partyType],
@@ -33,31 +36,24 @@ export function LedgerPage() {
     enabled: canView,
   });
 
-  const rows = useMemo(() => {
-    const list = data ?? [];
-    if (!search.trim()) return list;
-    const q = search.trim().toLowerCase();
-    return list.filter((r) => r.partyName.toLowerCase().includes(q));
-  }, [data, search]);
+  const { data: tenant } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant, enabled: canView });
+  const reminderIntervalDays = tenant?.reminderIntervalDays ?? 7;
 
+  const rows = useMemo(() => {
+    let list = data ?? [];
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((r) => r.partyName.toLowerCase().includes(q));
+    }
+    if (onlyDue) {
+      list = list.filter((r) => isReminderDue(r.lastReminderSentAt, reminderIntervalDays));
+    }
+    return list;
+  }, [data, search, onlyDue, reminderIntervalDays]);
+
+  const dueCount = (data ?? []).filter((r) => isReminderDue(r.lastReminderSentAt, reminderIntervalDays)).length;
   const grandTotal = (data ?? []).reduce((sum, r) => sum + r.total, 0);
   const isCustomer = partyType === "customer";
-
-  async function sendReminder(row: AgingRow) {
-    if (!row.phone) return;
-    setReminderLoadingId(row.partyId);
-    try {
-      const bills = await listPartyBills(row.partyId);
-      const message = buildBillReminderMessage(
-        row.partyName,
-        bills.map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
-        formatCurrency(row.total),
-      );
-      window.open(buildWhatsAppLink(row.phone, message), "_blank", "noopener,noreferrer");
-    } finally {
-      setReminderLoadingId(null);
-    }
-  }
 
   if (!canView) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">Ledger is available to owners, managers, and accountants only.</p>;
@@ -65,12 +61,33 @@ export function LedgerPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-          <BookText size={18} className="text-gray-400" />
-          Ledger
-        </h1>
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Who owes you, and who you owe. Tap a name for their full history.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <BookText size={18} className="text-gray-400" />
+            Ledger
+          </h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Who owes you, and who you owe. Tap a name for their full history.</p>
+        </div>
+        {rows.length > 0 && (
+          <button
+            onClick={() =>
+              exportToCsv(`${partyType}-balances-${new Date().toISOString().slice(0, 10)}`, rows, [
+                { header: "Name", value: (r) => r.partyName },
+                { header: "Phone", value: (r) => r.phone ?? "" },
+                { header: "0-30 days", value: (r) => r.current },
+                { header: "31-60 days", value: (r) => r.d31to60 },
+                { header: "61-90 days", value: (r) => r.d61to90 },
+                { header: "90+ days", value: (r) => r.d90plus },
+                { header: "Total", value: (r) => r.total },
+              ])
+            }
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Download size={15} />
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* summary hero */}
@@ -115,14 +132,29 @@ export function LedgerPage() {
         </div>
       </div>
 
-      <div className="relative">
-        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          placeholder={`Search ${partyType}s…`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            placeholder={`Search ${partyType}s…`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+        </div>
+        {dueCount > 0 && (
+          <button
+            onClick={() => setOnlyDue((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              onlyDue
+                ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-400"
+                : "border-gray-300 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            }`}
+          >
+            <BellRing size={13} />
+            {dueCount} due for reminder
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -138,44 +170,54 @@ export function LedgerPage() {
             </div>
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-              {rows.map((row) => (
-                <li key={row.partyId} className="group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
-                  <Link to={`/customers/${row.partyId}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                        isCustomer
-                          ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
-                          : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
-                      }`}
-                    >
-                      {initials(row.partyName)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
-                        {row.partyName}
-                      </p>
-                      {(row.d61to90 > 0 || row.d90plus > 0) && (
-                        <p className="text-xs font-medium text-red-600 dark:text-red-400">60+ days overdue</p>
-                      )}
-                    </div>
-                    <span className="shrink-0 font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</span>
-                  </Link>
-                  {row.phone && (
-                    <button
-                      type="button"
-                      onClick={() => sendReminder(row)}
-                      disabled={reminderLoadingId === row.partyId}
-                      title="Send WhatsApp reminder"
-                      className="shrink-0 text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
-                    >
-                      <MessageCircle size={16} />
-                    </button>
-                  )}
-                  <Link to={`/customers/${row.partyId}`} className="shrink-0 text-gray-300 dark:text-gray-600">
-                    <ChevronRight size={16} />
-                  </Link>
-                </li>
-              ))}
+              {rows.map((row) => {
+                const due = isReminderDue(row.lastReminderSentAt, reminderIntervalDays);
+                return (
+                  <li key={row.partyId} className="group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <Link to={`/customers/${row.partyId}`} className="flex min-w-0 flex-1 items-center gap-3">
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                          isCustomer
+                            ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+                            : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
+                        }`}
+                      >
+                        {initials(row.partyName)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
+                            {row.partyName}
+                          </p>
+                          {due && (
+                            <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                              Due
+                            </span>
+                          )}
+                        </div>
+                        {(row.d61to90 > 0 || row.d90plus > 0) && (
+                          <p className="text-xs font-medium text-red-600 dark:text-red-400">60+ days overdue</p>
+                        )}
+                      </div>
+                      <span className="shrink-0 font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</span>
+                    </Link>
+                    {row.phone && (
+                      <button
+                        type="button"
+                        onClick={() => sendReminder({ id: row.partyId, name: row.partyName, phone: row.phone! }, row.total)}
+                        disabled={reminderLoadingId === row.partyId}
+                        title="Send WhatsApp reminder"
+                        className="shrink-0 text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
+                      >
+                        <MessageCircle size={16} />
+                      </button>
+                    )}
+                    <Link to={`/customers/${row.partyId}`} className="shrink-0 text-gray-300 dark:text-gray-600">
+                      <ChevronRight size={16} />
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

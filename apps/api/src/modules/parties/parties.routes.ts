@@ -18,6 +18,8 @@ partiesRoutes.delete("/:id", requireRole("owner", "manager"), partiesController.
 
 partiesRoutes.post("/:id/public-link", requireRole("owner", "manager"), partiesController.getPublicLink);
 partiesRoutes.delete("/:id/public-link", requireRole("owner", "manager"), partiesController.revokePublicLink);
+partiesRoutes.post("/:id/reminder-sent", partiesController.reminderSent);
+partiesRoutes.get("/:id/statement.pdf", partiesController.downloadStatementPdf);
 
 partiesRoutes.use("/:partyId/ledger", ledgerRoutes);
 partiesRoutes.use("/:partyId/payments", partyPaymentsRoutes);

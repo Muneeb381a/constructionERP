@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { Download } from "lucide-react";
 import { inputClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
 import { Loader } from "../components/Loader";
+import { exportToCsv } from "../lib/csv";
 import { listInvoices, type Invoice } from "../lib/api/invoices";
+
+const EXPORT_PAGE_LIMIT = 100;
+const EXPORT_MAX_PAGES = 20; // caps a single export at 2,000 invoices — well beyond a small shop's needs
 
 const TYPE_LABELS: Record<Invoice["type"], string> = {
   sale: "Sale",
@@ -26,6 +31,7 @@ export function InvoicesListPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoices", type, dateFrom, dateTo, page],
@@ -40,9 +46,44 @@ export function InvoicesListPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const filters = { type: type || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined };
+      const all: Invoice[] = [];
+      for (let p = 1; p <= EXPORT_MAX_PAGES; p++) {
+        const res = await listInvoices({ ...filters, page: p, limit: EXPORT_PAGE_LIMIT });
+        all.push(...res.data);
+        if (res.data.length < EXPORT_PAGE_LIMIT || all.length >= res.total) break;
+      }
+      exportToCsv(`invoices-${new Date().toISOString().slice(0, 10)}`, all, [
+        { header: "Invoice No", value: (r) => r.invoiceNo },
+        { header: "Customer/Supplier", value: (r) => r.partyName ?? "Walk-in" },
+        { header: "Type", value: (r) => TYPE_LABELS[r.type] },
+        { header: "Date", value: (r) => new Date(r.createdAt).toLocaleString() },
+        { header: "Subtotal", value: (r) => r.subtotal },
+        { header: "Discount", value: (r) => r.discount },
+        { header: "Total", value: (r) => r.totalAmount },
+        { header: "Status", value: (r) => r.status },
+      ]);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Invoices</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Invoices</h1>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <Download size={15} />
+          {exporting ? "Exporting…" : "Export CSV"}
+        </button>
+      </div>
 
       <div className="flex flex-wrap gap-3">
         <select

@@ -251,6 +251,12 @@ function PreferencesSection() {
     onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to update preference"),
   });
 
+  const reminderIntervalMutation = useMutation({
+    mutationFn: (reminderIntervalDays: number) => updateTenant({ reminderIntervalDays }),
+    onSuccess: (updated) => queryClient.setQueryData<Tenant>(["tenant"], updated),
+    onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to update preference"),
+  });
+
   if (isLoading || !tenant) return <Loader />;
 
   return (
@@ -284,6 +290,30 @@ function PreferencesSection() {
           />
         </button>
       </div>
+
+      <div className="mt-4 flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Reminder Interval</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            How often a customer/supplier with a balance shows up as "due" for a payment reminder.
+          </p>
+        </div>
+        <select
+          value={tenant.reminderIntervalDays}
+          onChange={(e) => {
+            setError(null);
+            reminderIntervalMutation.mutate(Number(e.target.value));
+          }}
+          disabled={reminderIntervalMutation.isPending}
+          className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+        >
+          <option value={3}>Every 3 days</option>
+          <option value={7}>Every 7 days</option>
+          <option value={14}>Every 14 days</option>
+          <option value={30}>Every 30 days</option>
+        </select>
+      </div>
+
       {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </section>
   );

@@ -11,6 +11,7 @@ export type Party = {
   creditLimit: string;
   cachedBalance: string;
   balanceUpdatedAt: string | null;
+  lastReminderSentAt: string | null;
   createdAt: string;
 };
 
@@ -78,6 +79,16 @@ export async function getPartyPublicLink(id: string) {
 
 export async function revokePartyPublicLink(id: string) {
   await apiClient.delete(`/parties/${id}/public-link`);
+}
+
+export async function markReminderSent(id: string) {
+  const res = await apiClient.post<{ id: string; lastReminderSentAt: string }>(`/parties/${id}/reminder-sent`);
+  return res.data;
+}
+
+export async function downloadPartyStatement(id: string) {
+  const res = await apiClient.get(`/parties/${id}/statement.pdf`, { responseType: "blob" });
+  return res.data as Blob;
 }
 
 export type PublicBalanceBill = {

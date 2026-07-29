@@ -22,11 +22,14 @@ import { PartyPicker } from "../components/PartyPicker";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
-import { buildBillReminderMessage, buildLowStockAlertMessage, buildWhatsAppLink, buildWhatsAppShareLink } from "../lib/whatsapp";
+import { buildLowStockAlertMessage, buildWhatsAppShareLink } from "../lib/whatsapp";
+import { isReminderDue } from "../lib/reminders";
+import { useSendReminder } from "../hooks/useSendReminder";
 import { useAuthStore } from "../store/authStore";
 import { getTopCustomers, type Party } from "../lib/api/parties";
 import { createPayment, listPartyBills, type CreatePaymentInput } from "../lib/api/payments";
 import { getAgingReport } from "../lib/api/reports";
+import { getMyTenant } from "../lib/api/tenants";
 import type { DashboardSummary } from "../lib/types";
 
 const ACCENT = {
@@ -188,7 +191,7 @@ export function DashboardPage() {
   const canViewDashboard = role === "owner" || role === "manager" || role === "accountant";
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [reminderLoadingId, setReminderLoadingId] = useState<string | null>(null);
+  const { sendReminder, loadingId: reminderLoadingId } = useSendReminder();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard-summary"],
@@ -212,21 +215,8 @@ export function DashboardPage() {
   });
   const topDebtors = (aging ?? []).slice(0, 5);
 
-  async function sendDebtorReminder(row: { partyId: string; partyName: string; phone: string | null; total: number }) {
-    if (!row.phone) return;
-    setReminderLoadingId(row.partyId);
-    try {
-      const bills = await listPartyBills(row.partyId);
-      const message = buildBillReminderMessage(
-        row.partyName,
-        bills.map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
-        formatCurrency(row.total),
-      );
-      window.open(buildWhatsAppLink(row.phone, message), "_blank", "noopener,noreferrer");
-    } finally {
-      setReminderLoadingId(null);
-    }
-  }
+  const { data: tenant } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant, enabled: canViewDashboard });
+  const reminderIntervalDays = tenant?.reminderIntervalDays ?? 7;
 
   if (!canViewDashboard) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">{t("dashboard.restricted")}</p>;
@@ -395,27 +385,37 @@ export function DashboardPage() {
               <p className="p-3 text-sm text-gray-500 dark:text-gray-400">No outstanding balances.</p>
             ) : (
               <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                {topDebtors.map((row) => (
-                  <li key={row.partyId} className="flex items-center justify-between gap-2 px-3 py-2.5">
-                    <Link to={`/customers/${row.partyId}`} className="truncate text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
-                      {row.partyName}
-                    </Link>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</span>
-                      {row.phone && (
-                        <button
-                          type="button"
-                          onClick={() => sendDebtorReminder(row)}
-                          disabled={reminderLoadingId === row.partyId}
-                          title="Send WhatsApp reminder"
-                          className="text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
-                        >
-                          <MessageCircle size={15} />
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                {topDebtors.map((row) => {
+                  const due = isReminderDue(row.lastReminderSentAt, reminderIntervalDays);
+                  return (
+                    <li key={row.partyId} className="flex items-center justify-between gap-2 px-3 py-2.5">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <Link to={`/customers/${row.partyId}`} className="truncate text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
+                          {row.partyName}
+                        </Link>
+                        {due && (
+                          <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                            Due
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</span>
+                        {row.phone && (
+                          <button
+                            type="button"
+                            onClick={() => sendReminder({ id: row.partyId, name: row.partyName, phone: row.phone! }, row.total)}
+                            disabled={reminderLoadingId === row.partyId}
+                            title="Send WhatsApp reminder"
+                            className="text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
+                          >
+                            <MessageCircle size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

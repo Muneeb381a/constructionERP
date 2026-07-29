@@ -5,6 +5,7 @@ export const updateTenantSchema = z.object({
   address: z.string().max(250).nullable().optional(),
   phone: z.string().max(20).nullable().optional(),
   allowNegativeStock: z.boolean().optional(),
+  reminderIntervalDays: z.coerce.number().int().min(1).max(90).optional(),
 });
 
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;

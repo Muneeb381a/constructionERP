@@ -149,6 +149,16 @@ export async function getPublicBalanceByToken(token: string) {
   };
 }
 
+export async function markReminderSent(tenantId: string, partyId: string) {
+  const [updated] = await db
+    .update(parties)
+    .set({ lastReminderSentAt: new Date() })
+    .where(and(eq(parties.id, partyId), eq(parties.tenantId, tenantId)))
+    .returning({ id: parties.id, lastReminderSentAt: parties.lastReminderSentAt });
+  if (!updated) throw new HttpError(404, "Party not found");
+  return updated;
+}
+
 export async function deleteParty(tenantId: string, partyId: string) {
   try {
     const [deleted] = await db

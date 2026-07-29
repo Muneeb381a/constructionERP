@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { BookText, CreditCard, Link2, MessageCircle, Receipt, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
+import { BookText, CreditCard, Download, Link2, MessageCircle, Receipt, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
-import { buildBillReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
+import { buildWhatsAppLink } from "../lib/whatsapp";
+import { useSendReminder } from "../hooks/useSendReminder";
 import { useAuthStore } from "../store/authStore";
-import { getParty, getPartyPublicLink, type Party } from "../lib/api/parties";
+import { getParty, getPartyPublicLink, downloadPartyStatement, type Party } from "../lib/api/parties";
 import { getPartyLedger, postLedgerAdjustment, postOpeningBalance } from "../lib/api/ledger";
 import {
   createPayment,
@@ -394,13 +395,25 @@ export function PartyDetailPage() {
     enabled: !!id,
   });
 
-  // shares a cache entry with BillHistory's own query below — used here to itemize the
-  // WhatsApp reminder with exactly which bills are pending, not just the running total
-  const { data: billsForReminder } = useQuery({
-    queryKey: ["party-bills", id],
-    queryFn: () => listPartyBills(id!),
-    enabled: !!id,
-  });
+  const { sendReminder, loadingId: reminderLoadingId } = useSendReminder();
+  const [statementError, setStatementError] = useState<string | null>(null);
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
+
+  async function handleDownloadStatement() {
+    if (!id) return;
+    setStatementError(null);
+    setDownloadingStatement(true);
+    try {
+      const blob = await downloadPartyStatement(id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setStatementError(axiosErrorMessage(err) ?? "Failed to generate statement");
+    } finally {
+      setDownloadingStatement(false);
+    }
+  }
 
   const chequeMutation = useMutation({
     mutationFn: ({ chequeId, status }: { chequeId: string; status: "cleared" | "bounced" }) => updateChequeStatus(chequeId, status),
@@ -488,22 +501,14 @@ export function PartyDetailPage() {
                 Record Payment
               </button>
               {party.phone && balance > 0.01 && (
-                <a
-                  href={buildWhatsAppLink(
-                    party.phone,
-                    buildBillReminderMessage(
-                      party.name,
-                      (billsForReminder ?? []).map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
-                      formatCurrency(balance),
-                    ),
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-green-300 px-3 py-2.5 text-sm font-medium text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+                <button
+                  onClick={() => sendReminder({ id: party.id, name: party.name, phone: party.phone! }, balance)}
+                  disabled={reminderLoadingId === party.id}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-green-300 px-3 py-2.5 text-sm font-medium text-green-700 hover:bg-green-50 disabled:opacity-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
                 >
                   <MessageCircle size={15} />
-                  Send Reminder
-                </a>
+                  {reminderLoadingId === party.id ? "Preparing…" : "Send Reminder"}
+                </button>
               )}
               {isCustomer && party.phone && (
                 <button
@@ -515,7 +520,16 @@ export function PartyDetailPage() {
                   {shareLinkMutation.isPending ? "Preparing…" : "Share Balance Link"}
                 </button>
               )}
+              <button
+                onClick={handleDownloadStatement}
+                disabled={downloadingStatement}
+                className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <Download size={15} />
+                {downloadingStatement ? "Preparing…" : "Download Statement (PDF)"}
+              </button>
               {shareLinkError && <p className="text-sm text-red-600 dark:text-red-400">{shareLinkError}</p>}
+              {statementError && <p className="text-sm text-red-600 dark:text-red-400">{statementError}</p>}
 
               {canManageLedger && (
                 <div className="flex items-center justify-center gap-3 pt-1 text-xs text-gray-400 dark:text-gray-500">

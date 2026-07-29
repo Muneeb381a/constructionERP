@@ -130,6 +130,7 @@ export type AgingRow = {
   partyId: string;
   partyName: string;
   phone: string | null;
+  lastReminderSentAt: Date | null;
   current: number;
   d31to60: number;
   d61to90: number;
@@ -153,6 +154,7 @@ export async function getAgingReport(tenantId: string, partyType: "customer" | "
       createdAt: invoices.createdAt,
       partyName: parties.name,
       phone: parties.phone,
+      lastReminderSentAt: parties.lastReminderSentAt,
     })
     .from(invoices)
     .innerJoin(parties, eq(parties.id, invoices.partyId))
@@ -198,6 +200,7 @@ export async function getAgingReport(tenantId: string, partyType: "customer" | "
       partyId: inv.partyId,
       partyName: inv.partyName,
       phone: inv.phone,
+      lastReminderSentAt: inv.lastReminderSentAt,
       current: 0,
       d31to60: 0,
       d61to90: 0,

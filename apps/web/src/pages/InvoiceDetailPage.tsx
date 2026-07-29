@@ -2,10 +2,19 @@ import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toPng } from "html-to-image";
+import { FileDown } from "lucide-react";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { assignDelivery, fetchInvoicePdf, getInvoice, markDelivered, voidInvoice, type Invoice } from "../lib/api/invoices";
+import {
+  assignDelivery,
+  fetchDeliveryChallanPdf,
+  fetchInvoicePdf,
+  getInvoice,
+  markDelivered,
+  voidInvoice,
+  type Invoice,
+} from "../lib/api/invoices";
 import { getProduct } from "../lib/api/products";
 import { listUnits } from "../lib/api/units";
 import { getParty } from "../lib/api/parties";
@@ -32,8 +41,24 @@ function DeliverySection({ invoice, canManage }: { invoice: Invoice; canManage: 
   const queryClient = useQueryClient();
   const [employeeId, setEmployeeId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [downloadingChallan, setDownloadingChallan] = useState(false);
 
   const { data: employees } = useQuery({ queryKey: ["employees", ""], queryFn: () => listEmployees() });
+
+  async function handleDownloadChallan() {
+    setError(null);
+    setDownloadingChallan(true);
+    try {
+      const blob = await fetchDeliveryChallanPdf(invoice.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setError(axiosErrorMessage(err) ?? "Failed to generate delivery challan");
+    } finally {
+      setDownloadingChallan(false);
+    }
+  }
 
   const assignMutation = useMutation({
     mutationFn: () => assignDelivery(invoice.id, employeeId),
@@ -100,6 +125,16 @@ function DeliverySection({ invoice, canManage }: { invoice: Invoice; canManage: 
             </button>
           )}
         </div>
+      )}
+      {invoice.deliveryEmployeeId && (
+        <button
+          onClick={handleDownloadChallan}
+          disabled={downloadingChallan}
+          className="mt-3 flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline disabled:opacity-50 dark:text-blue-400"
+        >
+          <FileDown size={15} />
+          {downloadingChallan ? "Preparing…" : "Print Delivery Challan"}
+        </button>
       )}
       {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>

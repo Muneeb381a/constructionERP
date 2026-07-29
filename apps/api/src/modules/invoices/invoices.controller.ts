@@ -6,6 +6,7 @@ import * as purchaseService from "./purchase.service.js";
 import * as returnService from "./return.service.js";
 import * as voidService from "./void.service.js";
 import { generateInvoicePdf } from "./pdf.service.js";
+import { generateDeliveryChallanPdf } from "./challan.service.js";
 import { assignDeliverySchema, listInvoicesQuerySchema } from "./invoices.schema.js";
 import { createSaleInvoiceSchema } from "./sale.schema.js";
 import { createPurchaseInvoiceSchema } from "./purchase.schema.js";
@@ -62,6 +63,13 @@ export async function downloadPdf(req: Request, res: Response) {
   const pdfBytes = await generateInvoicePdf(req.auth!.tenantId, parseId(req.params.id as string));
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", "inline; filename=invoice.pdf");
+  res.send(Buffer.from(pdfBytes));
+}
+
+export async function downloadChallanPdf(req: Request, res: Response) {
+  const pdfBytes = await generateDeliveryChallanPdf(req.auth!.tenantId, parseId(req.params.id as string));
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", "inline; filename=delivery-challan.pdf");
   res.send(Buffer.from(pdfBytes));
 }
 

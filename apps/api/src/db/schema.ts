@@ -23,6 +23,7 @@ export const tenants = pgTable("tenants", {
   logoUrl: text("logo_url"),
   address: varchar("address", { length: 250 }),
   phone: varchar("phone", { length: 20 }),
+  reminderIntervalDays: integer("reminder_interval_days").default(7),
   allowNegativeStock: boolean("allow_negative_stock").default(false),
   defaultCurrency: varchar("default_currency", { length: 10 }).default("PKR"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -163,6 +164,7 @@ export const parties = pgTable("parties", {
   cachedBalance: numeric("cached_balance", { precision: 14, scale: 2 }).default("0"), // regenerated from ledger_entries, never incremented directly
   balanceUpdatedAt: timestamp("balance_updated_at", { withTimezone: true }),
   publicToken: uuid("public_token").unique(), // lazily generated — lets a customer view their own balance without logging in
+  lastReminderSentAt: timestamp("last_reminder_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 

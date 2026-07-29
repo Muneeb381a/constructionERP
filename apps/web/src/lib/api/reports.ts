@@ -40,6 +40,7 @@ export type AgingRow = {
   partyId: string;
   partyName: string;
   phone: string | null;
+  lastReminderSentAt: string | null;
   current: number;
   d31to60: number;
   d61to90: number;

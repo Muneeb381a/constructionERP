@@ -8,10 +8,9 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
-import { buildBillReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
+import { useSendReminder } from "../hooks/useSendReminder";
 import { useAuthStore } from "../store/authStore";
 import { createParty, deleteParty, listParties, updateParty, type Party, type PartyInput } from "../lib/api/parties";
-import { listPartyBills } from "../lib/api/payments";
 
 const emptyForm: PartyInput = { type: "customer", name: "", phone: "", cnic: "", address: "", creditLimit: 0 };
 
@@ -212,22 +211,7 @@ export function PartiesPage() {
   >(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [reminderLoadingId, setReminderLoadingId] = useState<string | null>(null);
-
-  async function sendReminder(party: Party) {
-    setReminderLoadingId(party.id);
-    try {
-      const bills = await listPartyBills(party.id);
-      const message = buildBillReminderMessage(
-        party.name,
-        bills.map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
-        formatCurrency(Number(party.cachedBalance)),
-      );
-      window.open(buildWhatsAppLink(party.phone!, message), "_blank", "noopener,noreferrer");
-    } finally {
-      setReminderLoadingId(null);
-    }
-  }
+  const { sendReminder, loadingId: reminderLoadingId } = useSendReminder();
 
   const { data, isLoading } = useQuery({
     queryKey: ["parties", search, typeFilter],
@@ -349,7 +333,7 @@ export function PartiesPage() {
                         {party.phone && balance > 0.01 && (
                           <button
                             type="button"
-                            onClick={() => sendReminder(party)}
+                            onClick={() => sendReminder({ id: party.id, name: party.name, phone: party.phone! }, balance)}
                             disabled={reminderLoadingId === party.id}
                             title="Send WhatsApp reminder"
                             className="text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"

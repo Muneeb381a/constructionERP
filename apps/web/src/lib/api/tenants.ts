@@ -7,6 +7,7 @@ export type Tenant = {
   address: string | null;
   phone: string | null;
   allowNegativeStock: boolean;
+  reminderIntervalDays: number;
   defaultCurrency: string;
   createdAt: string;
 };
@@ -16,6 +17,7 @@ export type UpdateTenantInput = {
   address?: string | null;
   phone?: string | null;
   allowNegativeStock?: boolean;
+  reminderIntervalDays?: number;
 };
 
 export async function getMyTenant() {

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { HttpError } from "../../middleware/error.middleware.js";
 import * as partiesService from "./parties.service.js";
+import { generatePartyStatementPdf } from "./statement.service.js";
 import { createPartySchema, listPartiesQuerySchema, updatePartySchema } from "./parties.schema.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -64,6 +65,18 @@ export async function getPublicLink(req: Request, res: Response) {
 export async function revokePublicLink(req: Request, res: Response) {
   await partiesService.revokePublicToken(req.auth!.tenantId, parseId(req.params.id as string));
   res.status(204).send();
+}
+
+export async function reminderSent(req: Request, res: Response) {
+  const result = await partiesService.markReminderSent(req.auth!.tenantId, parseId(req.params.id as string));
+  res.json(result);
+}
+
+export async function downloadStatementPdf(req: Request, res: Response) {
+  const pdfBytes = await generatePartyStatementPdf(req.auth!.tenantId, parseId(req.params.id as string));
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", "inline; filename=statement.pdf");
+  res.send(Buffer.from(pdfBytes));
 }
 
 export async function publicBalance(req: Request, res: Response) {
