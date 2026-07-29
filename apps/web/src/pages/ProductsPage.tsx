@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { RateHistoryChart } from "../components/RateHistoryChart";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
@@ -369,18 +371,20 @@ function RateHistoryModalContent({ productId }: { productId: string }) {
 export function ProductsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [modal, setModal] = useState<
     | null
     | { mode: "create" }
     | { mode: "edit"; product: Product }
     | { mode: "rate-history"; product: Product }
     | { mode: "bulk-price" }
+    | { mode: "deactivate"; product: Product }
   >(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["products", search],
-    queryFn: () => listProducts({ search: search || undefined }),
+    queryKey: ["products", search, showInactive],
+    queryFn: () => listProducts({ search: search || undefined, includeInactive: showInactive }),
   });
 
   const createMutation = useMutation({
@@ -399,6 +403,15 @@ export function ProductsPage() {
       setModal(null);
     },
     onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to save product"),
+  });
+
+  const activeToggleMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => updateProduct(id, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setModal(null);
+    },
+    onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to update product"),
   });
 
   function openCreate() {
@@ -431,12 +444,18 @@ export function ProductsPage() {
         </div>
       </div>
 
-      <input
-        placeholder="Search products…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className={inputClass + " max-w-sm"}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          placeholder="Search products…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={inputClass + " max-w-sm"}
+        />
+        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="rounded" />
+          Show inactive
+        </label>
+      </div>
 
       {isLoading ? (
         <Loader />
@@ -454,8 +473,15 @@ export function ProductsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {data?.data.map((product) => (
-                <tr key={product.id}>
-                  <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{product.name}</td>
+                <tr key={product.id} className={!product.isActive ? "opacity-50" : undefined}>
+                  <td className="px-4 py-2 text-gray-900 dark:text-gray-100">
+                    {product.name}
+                    {!product.isActive && (
+                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                        Inactive
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{formatCurrency(Number(product.purchasePrice))}</td>
                   <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{formatCurrency(Number(product.salePrice))}</td>
                   <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{product.minStock}</td>
@@ -469,10 +495,31 @@ export function ProductsPage() {
                       </button>
                       <button
                         onClick={() => openEdit(product)}
-                        className="text-blue-600 hover:underline dark:text-blue-400"
+                        title="Edit"
+                        className="text-gray-400 hover:text-blue-600 dark:text-gray-500 dark:hover:text-blue-400"
                       >
-                        Edit
+                        <Pencil size={15} />
                       </button>
+                      {product.isActive ? (
+                        <button
+                          onClick={() => {
+                            setFormError(null);
+                            setModal({ mode: "deactivate", product });
+                          }}
+                          title="Deactivate"
+                          className="text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => activeToggleMutation.mutate({ id: product.id, isActive: true })}
+                          title="Reactivate"
+                          className="text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400"
+                        >
+                          <RotateCcw size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -531,6 +578,17 @@ export function ProductsPage() {
         <Modal title="Bulk Price Update" onClose={() => setModal(null)}>
           <BulkPriceUpdateForm onDone={() => setModal(null)} />
         </Modal>
+      )}
+      {modal?.mode === "deactivate" && (
+        <ConfirmDialog
+          title="Deactivate Product"
+          message={`"${modal.product.name}" will be hidden from Add Item pickers and the default product list. Past invoices are unaffected, and you can reactivate it any time.`}
+          confirmLabel="Deactivate"
+          pending={activeToggleMutation.isPending}
+          error={formError}
+          onCancel={() => setModal(null)}
+          onConfirm={() => activeToggleMutation.mutate({ id: modal.product.id, isActive: false })}
+        />
       )}
     </div>
   );

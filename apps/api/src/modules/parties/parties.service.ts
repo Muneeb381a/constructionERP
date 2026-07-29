@@ -3,6 +3,7 @@ import type { DbOrTx } from "../../db/index.js";
 import { db } from "../../db/index.js";
 import { invoices, parties } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
+import { pgErrorCode } from "../../lib/pgError.js";
 import { listBillsForParty } from "../payments/payments.service.js";
 import type { CreatePartyInput, ListPartiesQuery, UpdatePartyInput } from "./parties.schema.js";
 
@@ -158,7 +159,7 @@ export async function deleteParty(tenantId: string, partyId: string) {
     if (!deleted) throw new HttpError(404, "Party not found");
   } catch (err) {
     if (err instanceof HttpError) throw err;
-    if ((err as { code?: string }).code === "23503") {
+    if (pgErrorCode(err) === "23503") {
       throw new HttpError(409, "Party has invoices, payments, or ledger history — it can't be deleted");
     }
     throw err;

@@ -1,15 +1,16 @@
 import { useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MessageCircle, Pencil, Plus, ShoppingBag, Truck, User, Phone, MapPin, IdCard, Wallet } from "lucide-react";
+import { MessageCircle, Pencil, Plus, ShoppingBag, Trash2, Truck, User, Phone, MapPin, IdCard, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { buildBillReminderMessage, buildWhatsAppLink } from "../lib/whatsapp";
 import { useAuthStore } from "../store/authStore";
-import { createParty, listParties, updateParty, type Party, type PartyInput } from "../lib/api/parties";
+import { createParty, deleteParty, listParties, updateParty, type Party, type PartyInput } from "../lib/api/parties";
 import { listPartyBills } from "../lib/api/payments";
 
 const emptyForm: PartyInput = { type: "customer", name: "", phone: "", cnic: "", address: "", creditLimit: 0 };
@@ -206,8 +207,11 @@ export function PartiesPage() {
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"" | "customer" | "supplier">("");
-  const [modal, setModal] = useState<null | { mode: "create" } | { mode: "edit"; party: Party }>(null);
+  const [modal, setModal] = useState<
+    null | { mode: "create" } | { mode: "edit"; party: Party } | { mode: "delete"; party: Party }
+  >(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [reminderLoadingId, setReminderLoadingId] = useState<string | null>(null);
 
   async function sendReminder(party: Party) {
@@ -246,6 +250,15 @@ export function PartiesPage() {
       setModal(null);
     },
     onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to save customer"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteParty,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["parties"] });
+      setModal(null);
+    },
+    onError: (err) => setDeleteError(axiosErrorMessage(err) ?? "Failed to delete customer"),
   });
 
   return (
@@ -354,6 +367,18 @@ export function PartiesPage() {
                         >
                           <Pencil size={15} />
                         </button>
+                        {canSetCreditLimit && (
+                          <button
+                            onClick={() => {
+                              setDeleteError(null);
+                              setModal({ mode: "delete", party });
+                            }}
+                            title="Delete"
+                            className="text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -404,6 +429,18 @@ export function PartiesPage() {
             onSubmit={(input) => updateMutation.mutate({ id: modal.party.id, input })}
           />
         </Modal>
+      )}
+
+      {modal?.mode === "delete" && (
+        <ConfirmDialog
+          title="Delete Customer"
+          message={`"${modal.party.name}" will be permanently removed. This only works if they have no invoices, payments, or ledger history — otherwise it'll fail and you should edit their record instead.`}
+          confirmLabel="Delete"
+          pending={deleteMutation.isPending}
+          error={deleteError}
+          onCancel={() => setModal(null)}
+          onConfirm={() => deleteMutation.mutate(modal.party.id)}
+        />
       )}
     </div>
   );

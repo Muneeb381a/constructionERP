@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db, type DbOrTx } from "../../db/index.js";
 import { employeeLedgerEntries, employees } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
+import { pgErrorCode } from "../../lib/pgError.js";
 import type { CreateEmployeeInput, ListEmployeesQuery, UpdateEmployeeInput } from "./employees.schema.js";
 
 /** Locks the employee row for the caller's transaction — mirrors parties.lockParty, so
@@ -105,7 +106,7 @@ export async function deleteEmployee(tenantId: string, employeeId: string) {
     if (!deleted) throw new HttpError(404, "Employee not found");
   } catch (err) {
     if (err instanceof HttpError) throw err;
-    if ((err as { code?: string }).code === "23503") {
+    if (pgErrorCode(err) === "23503") {
       throw new HttpError(409, "Employee has attendance or payment history — deactivate instead of deleting");
     }
     throw err;

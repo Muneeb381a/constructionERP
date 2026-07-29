@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
@@ -10,9 +12,11 @@ import { useAuthStore } from "../store/authStore";
 import { useShopContext } from "../hooks/useShopContext";
 import {
   createEmployee,
+  deleteEmployee,
   getTodayAttendance,
   listEmployees,
   markAttendance,
+  updateEmployee,
   type AttendanceStatus,
   type Employee,
   type EmployeeInput,
@@ -91,20 +95,34 @@ const emptyForm: EmployeeInput = {
   joiningDate: null,
 };
 
-function EmployeeForm({ onDone }: { onDone: () => void }) {
+function EmployeeForm({ editing, onDone }: { editing?: Employee; onDone: () => void }) {
   const queryClient = useQueryClient();
   const shop = useShopContext();
-  const [form, setForm] = useState<EmployeeInput>(emptyForm);
+  const [form, setForm] = useState<EmployeeInput>(
+    editing
+      ? {
+          branchId: editing.branchId,
+          name: editing.name,
+          phone: editing.phone,
+          cnic: editing.cnic,
+          designation: editing.designation,
+          employmentType: editing.employmentType,
+          dailyWageRate: Number(editing.dailyWageRate),
+          monthlySalary: Number(editing.monthlySalary),
+          joiningDate: editing.joiningDate,
+        }
+      : emptyForm,
+  );
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () => createEmployee({ ...form, branchId: shop.branchId }),
+    mutationFn: () => (editing ? updateEmployee(editing.id, form) : createEmployee({ ...form, branchId: shop.branchId })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["employees-today-attendance"] });
       onDone();
     },
-    onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to add employee"),
+    onError: (err) => setError(axiosErrorMessage(err) ?? `Failed to ${editing ? "update" : "add"} employee`),
   });
 
   return (
@@ -189,7 +207,7 @@ function EmployeeForm({ onDone }: { onDone: () => void }) {
           Cancel
         </button>
         <button type="submit" disabled={mutation.isPending} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-          {mutation.isPending ? "Saving…" : "Add Employee"}
+          {mutation.isPending ? "Saving…" : editing ? "Save Changes" : "Add Employee"}
         </button>
       </div>
     </form>
@@ -199,14 +217,32 @@ function EmployeeForm({ onDone }: { onDone: () => void }) {
 type EmploymentTypeValue = Employee["employmentType"];
 
 export function EmployeesPage() {
+  const queryClient = useQueryClient();
   const role = useAuthStore((s) => s.user?.role);
   const canManage = role === "owner" || role === "manager";
   const [search, setSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [modal, setModal] = useState<null | { mode: "edit"; employee: Employee } | { mode: "delete"; employee: Employee }>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data: employees, isLoading } = useQuery({
-    queryKey: ["employees", search],
-    queryFn: () => listEmployees({ search: search || undefined }),
+    queryKey: ["employees", search, showInactive],
+    queryFn: () => listEmployees({ search: search || undefined, includeInactive: showInactive }),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => updateEmployee(id, { isActive }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employees"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteEmployee,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setModal(null);
+    },
+    onError: (err) => setDeleteError(axiosErrorMessage(err) ?? "Failed to delete employee"),
   });
 
   return (
@@ -222,12 +258,20 @@ export function EmployeesPage() {
 
       {canManage && <TodayAttendanceCard />}
 
-      <input
-        placeholder="Search employees…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className={inputClass + " max-w-sm"}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          placeholder="Search employees…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={inputClass + " max-w-sm"}
+        />
+        {canManage && (
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="rounded" />
+            Show inactive
+          </label>
+        )}
+      </div>
 
       {isLoading ? (
         <Loader />
@@ -241,15 +285,21 @@ export function EmployeesPage() {
                 <th className="px-4 py-2 font-medium">Type</th>
                 <th className="px-4 py-2 font-medium">Rate</th>
                 <th className="px-4 py-2 font-medium">Balance Owed</th>
+                {canManage && <th className="px-4 py-2"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {employees?.map((emp) => (
-                <tr key={emp.id}>
+                <tr key={emp.id} className={!emp.isActive ? "opacity-50" : undefined}>
                   <td className="px-4 py-2">
                     <Link to={`/employees/${emp.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                       {emp.name}
                     </Link>
+                    {!emp.isActive && (
+                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                        Inactive
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{emp.designation ?? "—"}</td>
                   <td className="px-4 py-2 capitalize text-gray-600 dark:text-gray-400">{emp.employmentType.replace("_", " ")}</td>
@@ -257,11 +307,41 @@ export function EmployeesPage() {
                     {emp.employmentType === "daily_wage" ? `${formatCurrency(Number(emp.dailyWageRate))}/day` : `${formatCurrency(Number(emp.monthlySalary))}/mo`}
                   </td>
                   <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(emp.cachedBalance))}</td>
+                  {canManage && (
+                    <td className="px-4 py-2 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => setModal({ mode: "edit", employee: emp })}
+                          title="Edit"
+                          className="text-gray-400 hover:text-blue-600 dark:text-gray-500 dark:hover:text-blue-400"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        {emp.isActive ? (
+                          <button
+                            onClick={() => toggleActiveMutation.mutate({ id: emp.id, isActive: false })}
+                            title="Deactivate"
+                            className="text-gray-400 hover:text-amber-600 dark:text-gray-500 dark:hover:text-amber-400"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleActiveMutation.mutate({ id: emp.id, isActive: true })}
+                            title="Reactivate"
+                            className="text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400"
+                          >
+                            <RotateCcw size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
               {employees?.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={canManage ? 6 : 5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
                     No employees yet.
                   </td>
                 </tr>
@@ -275,6 +355,37 @@ export function EmployeesPage() {
         <Modal title="Add Employee" onClose={() => setShowAdd(false)}>
           <EmployeeForm onDone={() => setShowAdd(false)} />
         </Modal>
+      )}
+
+      {modal?.mode === "edit" && (
+        <Modal title="Edit Employee" onClose={() => setModal(null)}>
+          <div className="space-y-4">
+            <EmployeeForm editing={modal.employee} onDone={() => setModal(null)} />
+            <div className="border-t border-gray-100 pt-3 text-right dark:border-gray-800">
+              <button
+                onClick={() => {
+                  setDeleteError(null);
+                  setModal({ mode: "delete", employee: modal.employee });
+                }}
+                className="text-xs text-red-500 hover:text-red-700 hover:underline dark:text-red-400"
+              >
+                Delete this employee permanently
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {modal?.mode === "delete" && (
+        <ConfirmDialog
+          title="Delete Employee"
+          message={`"${modal.employee.name}" will be permanently removed. This only works if they have no attendance, payments, or salary history — otherwise it'll fail and you should deactivate them instead.`}
+          confirmLabel="Delete"
+          pending={deleteMutation.isPending}
+          error={deleteError}
+          onCancel={() => setModal(null)}
+          onConfirm={() => deleteMutation.mutate(modal.employee.id)}
+        />
       )}
     </div>
   );

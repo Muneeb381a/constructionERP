@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { units } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
+import { pgErrorCode } from "../../lib/pgError.js";
 import type { CreateUnitInput, UpdateUnitInput } from "./units.schema.js";
 
 export function listUnits(tenantId: string) {
@@ -37,7 +38,7 @@ export async function deleteUnit(tenantId: string, unitId: number) {
     if (!deleted) throw new HttpError(404, "Unit not found");
   } catch (err) {
     if (err instanceof HttpError) throw err;
-    if ((err as { code?: string }).code === "23503") {
+    if (pgErrorCode(err) === "23503") {
       throw new HttpError(409, "Unit is still in use by products or conversions — it can't be deleted");
     }
     throw err;

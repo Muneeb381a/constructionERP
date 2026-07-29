@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { categories } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
+import { pgErrorCode } from "../../lib/pgError.js";
 import type { CreateCategoryInput, UpdateCategoryInput } from "./categories.schema.js";
 
 async function assertParentInTenant(tenantId: string, parentId: number | null | undefined) {
@@ -68,7 +69,7 @@ export async function deleteCategory(tenantId: string, categoryId: number) {
     if (!deleted) throw new HttpError(404, "Category not found");
   } catch (err) {
     if (err instanceof HttpError) throw err;
-    if ((err as { code?: string }).code === "23503") {
+    if (pgErrorCode(err) === "23503") {
       throw new HttpError(409, "Category is still in use by products or subcategories — deactivate or reassign them first");
     }
     throw err;

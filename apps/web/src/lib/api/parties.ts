@@ -67,6 +67,10 @@ export async function updateParty(id: string, input: Partial<PartyInput>) {
   return res.data;
 }
 
+export async function deleteParty(id: string) {
+  await apiClient.delete(`/parties/${id}`);
+}
+
 export async function getPartyPublicLink(id: string) {
   const res = await apiClient.post<{ token: string }>(`/parties/${id}/public-link`);
   return res.data;

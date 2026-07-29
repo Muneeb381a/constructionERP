@@ -106,6 +106,10 @@ export async function updateEmployee(id: string, input: Partial<EmployeeInput> &
   return res.data;
 }
 
+export async function deleteEmployee(id: string) {
+  await apiClient.delete(`/employees/${id}`);
+}
+
 export async function markAttendance(employeeId: string, input: { date: string; status: AttendanceStatus; note?: string | null }) {
   const res = await apiClient.post<Attendance>(`/employees/${employeeId}/attendance`, input);
   return res.data;

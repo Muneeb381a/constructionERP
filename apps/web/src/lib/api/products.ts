@@ -36,7 +36,9 @@ export type ProductInput = {
   maxStock?: number | null;
 };
 
-export async function listProducts(params: { search?: string; categoryId?: number; page?: number } = {}) {
+export async function listProducts(
+  params: { search?: string; categoryId?: number; page?: number; includeInactive?: boolean } = {},
+) {
   const res = await apiClient.get<ProductListResponse>("/products", { params });
   return res.data;
 }
