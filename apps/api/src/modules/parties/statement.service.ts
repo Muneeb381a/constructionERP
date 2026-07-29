@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { db } from "../../db/index.js";
 import { tenants } from "../../db/schema.js";
+import { embedTenantLogo } from "../../lib/pdfLogo.js";
 import { getParty } from "./parties.service.js";
 import { listBillsForParty } from "../payments/payments.service.js";
 
@@ -30,6 +31,12 @@ export async function generatePartyStatementPdf(tenantId: string, partyId: strin
     if (y > 60) return;
     page = pdfDoc.addPage([595.28, 841.89]);
     y = 790;
+  }
+
+  const logo = await embedTenantLogo(pdfDoc, tenant.logoUrl);
+  if (logo) {
+    const dims = logo.scaleToFit(70, 50);
+    page.drawImage(logo, { x: right - dims.width, y: y - dims.height + 14, width: dims.width, height: dims.height });
   }
 
   page.drawText(tenant.businessName, { x: left, y, size: 18, font: bold, color: black });

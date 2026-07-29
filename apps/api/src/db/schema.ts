@@ -289,6 +289,30 @@ export const cashBook = pgTable("cash_book", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+// One row per day a shop "closes the till" — a snapshot of that day's figures plus what
+// the cashier actually counted, so a shortage/overage on a specific date is on record
+// rather than discovered (or not) weeks later.
+export const dailyClosings = pgTable("daily_closings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  branchId: uuid("branch_id").references(() => branches.id).notNull(),
+  closingDate: date("closing_date", { mode: "string" }).notNull(), // Asia/Karachi calendar day
+  salesTotal: numeric("sales_total", { precision: 14, scale: 2 }).notNull(),
+  purchasesTotal: numeric("purchases_total", { precision: 14, scale: 2 }).notNull(),
+  cashCollected: numeric("cash_collected", { precision: 14, scale: 2 }).notNull(),
+  bankCollected: numeric("bank_collected", { precision: 14, scale: 2 }).notNull(),
+  chequeCollected: numeric("cheque_collected", { precision: 14, scale: 2 }).notNull(),
+  expensesTotal: numeric("expenses_total", { precision: 14, scale: 2 }).notNull(),
+  expectedCash: numeric("expected_cash", { precision: 14, scale: 2 }).notNull(),
+  countedCash: numeric("counted_cash", { precision: 14, scale: 2 }).notNull(),
+  discrepancy: numeric("discrepancy", { precision: 14, scale: 2 }).notNull(),
+  notes: text("notes"),
+  closedBy: uuid("closed_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  perBranchDateIdx: uniqueIndex("daily_closings_branch_date_idx").on(t.branchId, t.closingDate),
+}));
+
 // General business expenses (rent, utilities, fuel, maintenance...) — categorized and
 // separately reportable, but also auto-posts a matching Cash Out row so the existing
 // Cash Book total still reflects every rupee leaving the till.

@@ -223,6 +223,7 @@ export async function getAgingReport(tenantId: string, partyType: "customer" | "
 export type ReorderSuggestion = {
   productId: string;
   name: string;
+  unitId: number;
   unitName: string;
   currentStock: number;
   minStock: number;
@@ -245,13 +246,14 @@ export async function getReorderSuggestions(tenantId: string): Promise<ReorderSu
       minStock: products.minStock,
       maxStock: products.maxStock,
       currentStock: sql<string>`coalesce(sum(${productStock.quantity}), 0)`,
+      unitId: products.baseUnitId,
       unitName: units.name,
     })
     .from(products)
     .leftJoin(productStock, eq(productStock.productId, products.id))
     .innerJoin(units, eq(units.id, products.baseUnitId))
     .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)))
-    .groupBy(products.id, products.name, products.minStock, products.maxStock, units.name)
+    .groupBy(products.id, products.name, products.minStock, products.maxStock, products.baseUnitId, units.name)
     .having(sql`coalesce(sum(${productStock.quantity}), 0) < ${products.minStock}`);
 
   if (stockRows.length === 0) return [];
@@ -277,6 +279,7 @@ export async function getReorderSuggestions(tenantId: string): Promise<ReorderSu
       return {
         productId: r.productId,
         name: r.name,
+        unitId: r.unitId,
         unitName: r.unitName,
         currentStock,
         minStock,

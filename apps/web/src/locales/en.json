@@ -22,6 +22,7 @@
     "ledger": "Ledger",
     "expenses": "Expenses",
     "employees": "Employees",
+    "closing": "Day-End Closing",
     "settings": "Settings",
     "logout": "Log out"
   },

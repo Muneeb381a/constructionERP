@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { ShoppingCart } from "lucide-react";
 import { SalesTrendChart } from "../components/SalesTrendChart";
 import { Loader } from "../components/Loader";
+import { Modal } from "../components/Modal";
+import { PartyPicker } from "../components/PartyPicker";
 import { inputClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { getAgingReport, getProfitSummary, getReorderSuggestions, getSalesTrend, getTopProducts } from "../lib/api/reports";
+import type { Party } from "../lib/api/parties";
+import type { ReorderState } from "./PurchaseInvoicePage";
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -98,21 +103,91 @@ function AgingReportSection() {
   );
 }
 
+function ReorderModal({
+  items,
+  onClose,
+}: {
+  items: { productId: string; unitId: number; quantity: number }[];
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const [supplier, setSupplier] = useState<Party | null>(null);
+
+  function handleCreate() {
+    const state: ReorderState = { reorder: { partyId: supplier?.id ?? null, items } };
+    navigate("/purchase", { state });
+  }
+
+  return (
+    <Modal title="Create Purchase from Suggestions" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {items.length} item{items.length === 1 ? "" : "s"} will be added to a new Purchase Invoice at today's purchase prices.
+        </p>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Supplier (optional)</label>
+          <PartyPicker type="supplier" placeholder="Search supplier…" selected={supplier} onSelect={setSupplier} onClear={() => setSupplier(null)} />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+            Cancel
+          </button>
+          <button onClick={handleCreate} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Continue to Purchase
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function ReorderSuggestionsSection() {
   const { data, isLoading } = useQuery({ queryKey: ["reports-reorder"], queryFn: getReorderSuggestions });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showReorderModal, setShowReorderModal] = useState(false);
+
+  function toggle(productId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  }
+
+  const rows = data ?? [];
+  const selectedItems = rows
+    .filter((r) => selected.has(r.productId))
+    .map((r) => ({ productId: r.productId, unitId: r.unitId, quantity: r.suggestedReorderQty }));
 
   return (
     <div>
-      <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Reorder Suggestions</h2>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Reorder Suggestions</h2>
+        {rows.length > 0 && (
+          <button
+            onClick={() => {
+              if (selected.size === 0) setSelected(new Set(rows.map((r) => r.productId)));
+              setShowReorderModal(true);
+            }}
+            disabled={selected.size === 0 && rows.length === 0}
+            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          >
+            <ShoppingCart size={13} />
+            Create Purchase{selected.size > 0 ? ` (${selected.size})` : ""}
+          </button>
+        )}
+      </div>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
-        ) : !data || data.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Nothing below its reorder point right now.</p>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
               <tr>
+                <th className="w-8 px-4 py-2.5"></th>
                 <th className="px-4 py-2.5 font-medium">Product</th>
                 <th className="px-4 py-2.5 text-right font-medium">Current</th>
                 <th className="px-4 py-2.5 text-right font-medium">Min</th>
@@ -121,8 +196,11 @@ function ReorderSuggestionsSection() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {data.map((row) => (
+              {rows.map((row) => (
                 <tr key={row.productId}>
+                  <td className="px-4 py-3">
+                    <input type="checkbox" checked={selected.has(row.productId)} onChange={() => toggle(row.productId)} className="rounded" />
+                  </td>
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{row.name}</td>
                   <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">
                     {row.currentStock} {row.unitName}
@@ -146,6 +224,8 @@ function ReorderSuggestionsSection() {
           </table>
         )}
       </div>
+
+      {showReorderModal && <ReorderModal items={selectedItems} onClose={() => setShowReorderModal(false)} />}
     </div>
   );
 }

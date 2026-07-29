@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   BarChart3,
   BookText,
+  ClipboardCheck,
   FileText,
   HardHat,
   LayoutDashboard,
@@ -57,6 +58,7 @@ const navGroups = [
       { to: "/ledger", key: "ledger", icon: BookText },
       { to: "/expenses", key: "expenses", icon: ReceiptText },
       { to: "/employees", key: "employees", icon: HardHat },
+      { to: "/closing", key: "closing", icon: ClipboardCheck },
     ],
   },
   {

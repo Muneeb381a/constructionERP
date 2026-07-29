@@ -17,6 +17,7 @@ export type ReceiptLine = {
 
 export function ReceiptImage({
   businessName,
+  logoUrl,
   invoiceNo,
   type,
   createdAt,
@@ -28,6 +29,7 @@ export function ReceiptImage({
   totalAmount,
 }: {
   businessName: string;
+  logoUrl?: string | null;
   invoiceNo: string;
   type: string;
   createdAt: string;
@@ -41,6 +43,7 @@ export function ReceiptImage({
   return (
     <div style={{ width: 380, background: "#ffffff", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif", padding: 24 }}>
       <div style={{ textAlign: "center", marginBottom: 16 }}>
+        {logoUrl && <img src={logoUrl} alt="" style={{ height: 48, maxWidth: 160, objectFit: "contain", margin: "0 auto 8px" }} />}
         <p style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{businessName}</p>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>{TYPE_LABELS[type] ?? type}</p>
       </div>

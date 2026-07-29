@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
 import { CloudOff, RefreshCw, User, PackagePlus, Receipt, Banknote } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
@@ -13,7 +14,15 @@ import { useAuthStore } from "../store/authStore";
 import { listUnits } from "../lib/api/units";
 import { createSaleInvoice, type CreateSaleInvoiceInput } from "../lib/api/invoices";
 import { getParty, getTopCustomers, type Party } from "../lib/api/parties";
+import { getProduct } from "../lib/api/products";
 import { isNetworkError, queueSale } from "../lib/offlineSalesQueue";
+
+export type RepeatOrderState = {
+  repeatOrder: {
+    partyId: string;
+    items: { productId: string; unitId: number; quantity: number }[];
+  };
+};
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
@@ -21,6 +30,8 @@ function round2(n: number) {
 
 export function SaleInvoicePage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const canSell = user?.role === "owner" || user?.role === "manager" || user?.role === "cashier";
   const canOverrideRole = user?.role === "owner" || user?.role === "manager";
@@ -31,6 +42,30 @@ export function SaleInvoicePage() {
 
   const { cart, addProduct, updateItem, removeItem, clear, subtotal } = useInvoiceCart(units, "salePrice");
   const [party, setParty] = useState<Party | null>(null);
+  const [repeatOrderLoading, setRepeatOrderLoading] = useState(false);
+  const repeatOrderHandled = useRef(false);
+
+  // "Repeat Last Order" arrives here via router state from the Customer Detail page —
+  // re-resolve each product to today's price rather than trusting the old invoice's price
+  useEffect(() => {
+    const state = location.state as RepeatOrderState | null;
+    if (!state?.repeatOrder || repeatOrderHandled.current) return;
+    repeatOrderHandled.current = true;
+
+    setRepeatOrderLoading(true);
+    (async () => {
+      const fullParty = await getParty(state.repeatOrder.partyId);
+      setParty(fullParty);
+      for (const item of state.repeatOrder.items) {
+        const product = await getProduct(item.productId);
+        await addProduct(product, { quantity: item.quantity, unitId: item.unitId });
+      }
+      setRepeatOrderLoading(false);
+      navigate(location.pathname, { replace: true, state: null });
+    })();
+    // deliberately runs once on mount only — re-running on every location/navigate identity
+    // change would re-trigger the repeat-order fill after we've already cleared the state
+  }, []);
   const [discount, setDiscount] = useState(0);
   const [amountReceived, setAmountReceived] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
@@ -151,6 +186,12 @@ export function SaleInvoicePage() {
           </div>
         )}
       </div>
+
+      {repeatOrderLoading && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+          Loading their last order — prices are refreshed to today's rates…
+        </div>
+      )}
 
       {queuedOffline && (
         <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">

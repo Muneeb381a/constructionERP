@@ -3,6 +3,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { db } from "../../db/index.js";
 import { invoiceItems, invoices, parties, products, tenants, units } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
+import { embedTenantLogo } from "../../lib/pdfLogo.js";
 
 const TYPE_LABELS: Record<string, string> = {
   sale: "Sale Invoice",
@@ -45,6 +46,12 @@ export async function generateInvoicePdf(tenantId: string, invoiceId: string): P
   const left = 50;
   const right = 545;
   let y = 790;
+
+  const logo = await embedTenantLogo(pdfDoc, tenant.logoUrl);
+  if (logo) {
+    const dims = logo.scaleToFit(70, 50);
+    page.drawImage(logo, { x: right - dims.width, y: y - dims.height + 14, width: dims.width, height: dims.height });
+  }
 
   page.drawText(tenant.businessName, { x: left, y, size: 18, font: bold, color: black });
   y -= 26;

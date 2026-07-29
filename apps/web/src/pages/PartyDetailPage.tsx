@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
-import { BookText, CreditCard, Download, Link2, MessageCircle, Receipt, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { BookText, CreditCard, Download, Link2, MessageCircle, Receipt, Repeat, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
@@ -20,7 +20,8 @@ import {
   type CreatePaymentInput,
   type PartyBill,
 } from "../lib/api/payments";
-import { listInvoices } from "../lib/api/invoices";
+import { listInvoices, getInvoice } from "../lib/api/invoices";
+import type { RepeatOrderState } from "./SaleInvoicePage";
 
 const INVOICE_TYPE_LABELS: Record<string, string> = {
   sale: "Sale",
@@ -368,6 +369,7 @@ function LedgerEntryForm({
 
 export function PartyDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const role = useAuthStore((s) => s.user?.role);
   const canManageLedger = role === "owner" || role === "manager";
@@ -398,6 +400,31 @@ export function PartyDetailPage() {
   const { sendReminder, loadingId: reminderLoadingId } = useSendReminder();
   const [statementError, setStatementError] = useState<string | null>(null);
   const [downloadingStatement, setDownloadingStatement] = useState(false);
+  const [repeatOrderLoading, setRepeatOrderLoading] = useState(false);
+
+  const { data: recentSales } = useQuery({
+    queryKey: ["party-invoices", id, "sale", "recent"],
+    queryFn: () => listInvoices({ partyId: id!, type: "sale", limit: 5 }),
+    enabled: !!id,
+  });
+  const lastSale = recentSales?.data.find((inv) => inv.status !== "void");
+
+  async function handleRepeatLastOrder() {
+    if (!lastSale) return;
+    setRepeatOrderLoading(true);
+    try {
+      const { items } = await getInvoice(lastSale.id);
+      const state: RepeatOrderState = {
+        repeatOrder: {
+          partyId: lastSale.partyId!,
+          items: items.map((i) => ({ productId: i.productId, unitId: i.unitId, quantity: Number(i.quantity) })),
+        },
+      };
+      navigate("/sale", { state });
+    } finally {
+      setRepeatOrderLoading(false);
+    }
+  }
 
   async function handleDownloadStatement() {
     if (!id) return;
@@ -500,6 +527,16 @@ export function PartyDetailPage() {
               >
                 Record Payment
               </button>
+              {isCustomer && lastSale && (
+                <button
+                  onClick={handleRepeatLastOrder}
+                  disabled={repeatOrderLoading}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <Repeat size={15} />
+                  {repeatOrderLoading ? "Loading…" : "Repeat Last Order"}
+                </button>
+              )}
               {party.phone && balance > 0.01 && (
                 <button
                   onClick={() => sendReminder({ id: party.id, name: party.name, phone: party.phone! }, balance)}

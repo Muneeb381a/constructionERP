@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
@@ -10,14 +11,24 @@ import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { listUnits } from "../lib/api/units";
 import { createPurchaseInvoice, type CreatePurchaseInvoiceInput } from "../lib/api/invoices";
-import type { Party } from "../lib/api/parties";
+import { getParty, type Party } from "../lib/api/parties";
+import { getProduct } from "../lib/api/products";
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+export type ReorderState = {
+  reorder: {
+    partyId: string | null;
+    items: { productId: string; unitId: number; quantity: number }[];
+  };
+};
+
 export function PurchaseInvoicePage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const canPurchase = user?.role === "owner" || user?.role === "manager";
 
@@ -30,6 +41,27 @@ export function PurchaseInvoicePage() {
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successInvoiceNo, setSuccessInvoiceNo] = useState<string | null>(null);
+  const [reorderLoading, setReorderLoading] = useState(false);
+  const reorderHandled = useRef(false);
+
+  // arrives via router state from Reports → Reorder Suggestions — resolves each product at
+  // today's purchase price rather than whatever it cost last time
+  useEffect(() => {
+    const state = location.state as ReorderState | null;
+    if (!state?.reorder || reorderHandled.current) return;
+    reorderHandled.current = true;
+
+    setReorderLoading(true);
+    (async () => {
+      if (state.reorder.partyId) setParty(await getParty(state.reorder.partyId));
+      for (const item of state.reorder.items) {
+        const product = await getProduct(item.productId);
+        await addProduct(product, { quantity: item.quantity, unitId: item.unitId });
+      }
+      setReorderLoading(false);
+      navigate(location.pathname, { replace: true, state: null });
+    })();
+  }, []);
 
   const total = round2(subtotal - discount);
 
@@ -73,6 +105,12 @@ export function PurchaseInvoicePage() {
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Purchase</h1>
+
+      {reorderLoading && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+          Loading reorder items — prices are refreshed to today's rates…
+        </div>
+      )}
 
       {successInvoiceNo && (
         <div className="flex items-center justify-between rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">

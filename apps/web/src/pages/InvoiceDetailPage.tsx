@@ -429,6 +429,7 @@ export function InvoiceDetailPage() {
               <div id="printable-receipt" ref={receiptRef} className="mx-auto w-fit" style={{ "--print-width": printWidth } as CSSProperties}>
                 <ReceiptImage
                   businessName={tenant?.businessName ?? "…"}
+                  logoUrl={tenant?.logoUrl}
                   invoiceNo={invoice.invoiceNo}
                   type={invoice.type}
                   createdAt={invoice.createdAt}

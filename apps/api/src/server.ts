@@ -22,6 +22,7 @@ import { tenantsRoutes } from "./modules/tenants/tenants.routes.js";
 import { employeesRoutes } from "./modules/employees/employees.routes.js";
 import { expensesRoutes } from "./modules/expenses/expenses.routes.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
+import { closingRoutes } from "./modules/closing/closing.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 export const app = express();
@@ -52,6 +53,7 @@ app.use("/api/tenants", tenantsRoutes);
 app.use("/api/employees", employeesRoutes);
 app.use("/api/expenses", expensesRoutes);
 app.use("/api/audit-log", auditRoutes);
+app.use("/api/closing", closingRoutes);
 app.use("/api/public", publicPartyRoutes);
 
 app.use(errorHandler);

@@ -56,6 +56,7 @@ export async function getAgingReport(partyType: "customer" | "supplier") {
 export type ReorderSuggestion = {
   productId: string;
   name: string;
+  unitId: number;
   unitName: string;
   currentStock: number;
   minStock: number;
