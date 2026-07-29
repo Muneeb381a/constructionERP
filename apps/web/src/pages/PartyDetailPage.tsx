@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { Link2, MessageCircle } from "lucide-react";
+import { BookText, CreditCard, Link2, MessageCircle, Receipt, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
@@ -42,6 +42,49 @@ const BILL_STATUS_LABELS: Record<PartyBill["status"], string> = {
   void: "Void",
 };
 
+const STAT_ACCENT = {
+  blue: { bg: "bg-blue-50 dark:bg-blue-500/10", icon: "text-blue-600 dark:text-blue-400" },
+  green: { bg: "bg-green-50 dark:bg-green-500/10", icon: "text-green-600 dark:text-green-400" },
+  amber: { bg: "bg-amber-50 dark:bg-amber-500/10", icon: "text-amber-600 dark:text-amber-400" },
+  red: { bg: "bg-red-50 dark:bg-red-500/10", icon: "text-red-600 dark:text-red-400" },
+  gray: { bg: "bg-gray-100 dark:bg-gray-800", icon: "text-gray-500 dark:text-gray-400" },
+};
+
+function StatTile({
+  icon: Icon,
+  accent,
+  label,
+  value,
+}: {
+  icon: typeof Trophy;
+  accent: keyof typeof STAT_ACCENT;
+  label: string;
+  value: string;
+}) {
+  const colors = STAT_ACCENT[accent];
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center gap-2">
+        <div className={`flex h-7 w-7 items-center justify-center rounded-md ${colors.bg}`}>
+          <Icon size={14} className={colors.icon} />
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      </div>
+      <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">{value}</p>
+    </div>
+  );
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
 function BillHistory({ party }: { party: Party }) {
   const partyId = party.id;
   const billType = party.type === "supplier" ? "purchase" : "sale";
@@ -68,69 +111,63 @@ function BillHistory({ party }: { party: Party }) {
 
   return (
     <div>
-      <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <Receipt size={16} className="text-gray-400" />
         {party.type === "supplier" ? "Purchase History" : "Sales History"}
       </h2>
 
       <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-          <p className="text-xs text-gray-500 dark:text-gray-400">{party.type === "supplier" ? "Purchases" : "Orders"}</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{orderCount}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Lifetime Value</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(lifetimeValue)}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Avg Bill</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(avgOrder)}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Last Bill</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {lastPurchase ? new Date(lastPurchase).toLocaleDateString() : "—"}
-          </p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Unsettled Bills</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{outstandingBills}</p>
-        </div>
+        <StatTile
+          icon={party.type === "supplier" ? Truck : ShoppingBag}
+          accent="blue"
+          label={party.type === "supplier" ? "Purchases" : "Orders"}
+          value={String(orderCount)}
+        />
+        <StatTile icon={Trophy} accent="amber" label="Lifetime Value" value={formatCurrency(lifetimeValue)} />
+        <StatTile icon={CreditCard} accent="gray" label="Avg Bill" value={formatCurrency(avgOrder)} />
+        <StatTile icon={Receipt} accent="gray" label="Last Bill" value={lastPurchase ? new Date(lastPurchase).toLocaleDateString() : "—"} />
+        <StatTile
+          icon={Wallet}
+          accent={outstandingBills > 0 ? "red" : "green"}
+          label="Unsettled Bills"
+          value={String(outstandingBills)}
+        />
       </div>
 
       {isLoading ? (
         <Loader />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
               <tr>
-                <th className="px-4 py-2 font-medium">Invoice</th>
-                <th className="px-4 py-2 font-medium">Type</th>
-                <th className="px-4 py-2 font-medium">Date</th>
-                <th className="px-4 py-2 font-medium">Total</th>
-                <th className="px-4 py-2 font-medium">Paid</th>
-                <th className="px-4 py-2 font-medium">Balance Due</th>
-                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2.5 font-medium">Invoice</th>
+                <th className="px-4 py-2.5 font-medium">Type</th>
+                <th className="px-4 py-2.5 font-medium">Date</th>
+                <th className="px-4 py-2.5 font-medium">Total</th>
+                <th className="px-4 py-2.5 font-medium">Paid</th>
+                <th className="px-4 py-2.5 font-medium">Balance Due</th>
+                <th className="px-4 py-2.5 font-medium">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {invoices.map((inv) => {
                 const bill = billByInvoiceId.get(inv.id);
                 return (
-                  <tr key={inv.id}>
-                    <td className="px-4 py-2">
-                      <Link to={`/invoices/${inv.id}`} className="text-blue-600 hover:underline dark:text-blue-400">
+                  <tr key={inv.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <td className="px-4 py-2.5">
+                      <Link to={`/invoices/${inv.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                         {inv.invoiceNo}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{INVOICE_TYPE_LABELS[inv.type] ?? inv.type}</td>
-                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{new Date(inv.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{formatCurrency(Number(inv.totalAmount))}</td>
-                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{bill ? formatCurrency(bill.paidTotal) : "—"}</td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-gray-100">
+                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{INVOICE_TYPE_LABELS[inv.type] ?? inv.type}</td>
+                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-2.5 text-gray-900 dark:text-gray-100">{formatCurrency(Number(inv.totalAmount))}</td>
+                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{bill ? formatCurrency(bill.paidTotal) : "—"}</td>
+                    <td className="px-4 py-2.5 text-gray-900 dark:text-gray-100">
                       {bill ? formatCurrency(Math.max(0, bill.balanceDue)) : "—"}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2.5">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                           bill ? BILL_STATUS_STYLES[bill.status] : BILL_STATUS_STYLES.void
@@ -144,7 +181,7 @@ function BillHistory({ party }: { party: Party }) {
               })}
               {invoices.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                     No invoices yet.
                   </td>
                 </tr>
@@ -388,75 +425,99 @@ export function PartyDetailPage() {
 
   if (partyLoading || !party) return <Loader full />;
 
+  const balance = Number(party.cachedBalance);
+  const isCustomer = party.type === "customer";
+  const balanceLabel = balance <= 0.01 ? "Settled" : isCustomer ? "Owed to you" : "You owe";
+
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/customers" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
-          ← Back to Customers
-        </Link>
-        <div className="mt-1 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{party.name}</h1>
-            <p className="text-sm capitalize text-gray-500 dark:text-gray-400">
-              {party.type} {party.phone && `· ${party.phone}`}
-            </p>
+      <Link to="/customers" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+        ← Back to Customers
+      </Link>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${
+                isCustomer
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+                  : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
+              }`}
+            >
+              {initials(party.name)}
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{party.name}</h1>
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                    isCustomer
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+                      : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
+                  }`}
+                >
+                  {party.type}
+                </span>
+                {party.phone && <span>{party.phone}</span>}
+              </p>
+            </div>
           </div>
           <div className="text-right">
-            <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(Number(party.cachedBalance))}</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{balanceLabel}</p>
+            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(balance)}</p>
             {Number(party.creditLimit) > 0 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500">Limit {formatCurrency(Number(party.creditLimit))}</p>
+              <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Credit limit {formatCurrency(Number(party.creditLimit))}</p>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => setModal("payment")} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          Record Payment
-        </button>
-        {party.phone && Number(party.cachedBalance) > 0 && (
-          <a
-            href={buildWhatsAppLink(
-              party.phone,
-              buildBillReminderMessage(
-                party.name,
-                (billsForReminder ?? []).map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
-                formatCurrency(Number(party.cachedBalance)),
-              ),
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-md border border-green-300 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
-          >
-            <MessageCircle size={15} />
-            Send Reminder
-          </a>
-        )}
-        {party.type === "customer" && party.phone && (
-          <button
-            onClick={() => shareLinkMutation.mutate()}
-            disabled={shareLinkMutation.isPending}
-            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <Link2 size={15} />
-            {shareLinkMutation.isPending ? "Preparing…" : "Share Balance Link"}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setModal("payment")} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Record Payment
           </button>
-        )}
-        {canManageLedger && (
-          <>
-            <button
-              onClick={() => setModal("opening-balance")}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          {party.phone && balance > 0.01 && (
+            <a
+              href={buildWhatsAppLink(
+                party.phone,
+                buildBillReminderMessage(
+                  party.name,
+                  (billsForReminder ?? []).map((b) => ({ invoiceNo: b.invoice.invoiceNo, date: b.invoice.createdAt, balanceDue: b.balanceDue })),
+                  formatCurrency(balance),
+                ),
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-md border border-green-300 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
             >
+              <MessageCircle size={15} />
+              Send Reminder
+            </a>
+          )}
+          {isCustomer && party.phone && (
+            <button
+              onClick={() => shareLinkMutation.mutate()}
+              disabled={shareLinkMutation.isPending}
+              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <Link2 size={15} />
+              {shareLinkMutation.isPending ? "Preparing…" : "Share Balance Link"}
+            </button>
+          )}
+        </div>
+
+        {canManageLedger && (
+          <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400">
+            <button onClick={() => setModal("opening-balance")} className="hover:text-gray-700 hover:underline dark:hover:text-gray-300">
               Opening Balance
             </button>
-            <button
-              onClick={() => setModal("adjustment")}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
+            <span className="text-gray-300 dark:text-gray-700">·</span>
+            <button onClick={() => setModal("adjustment")} className="hover:text-gray-700 hover:underline dark:hover:text-gray-300">
               Ledger Adjustment
             </button>
-          </>
+          </div>
         )}
       </div>
       {shareLinkError && <p className="text-sm text-red-600 dark:text-red-400">{shareLinkError}</p>}
@@ -464,25 +525,28 @@ export function PartyDetailPage() {
       <BillHistory party={party} />
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Payments</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <Wallet size={16} className="text-gray-400" />
+          Payments
+        </h2>
         {chequeError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{chequeError}</p>}
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
               <tr>
-                <th className="px-4 py-2 font-medium">Date</th>
-                <th className="px-4 py-2 font-medium">Applied To</th>
-                <th className="px-4 py-2 font-medium">Method</th>
-                <th className="px-4 py-2 font-medium">Amount</th>
-                <th className="px-4 py-2 font-medium">Cheque</th>
-                <th className="px-4 py-2"></th>
+                <th className="px-4 py-2.5 font-medium">Date</th>
+                <th className="px-4 py-2.5 font-medium">Applied To</th>
+                <th className="px-4 py-2.5 font-medium">Method</th>
+                <th className="px-4 py-2.5 font-medium">Amount</th>
+                <th className="px-4 py-2.5 font-medium">Cheque</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {paymentsList?.map((p) => (
-                <tr key={p.id}>
-                  <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{new Date(p.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                <tr key={p.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                  <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{new Date(p.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
                     {p.invoiceId && p.invoiceNo ? (
                       <Link to={`/invoices/${p.invoiceId}`} className="text-blue-600 hover:underline dark:text-blue-400">
                         {p.invoiceNo}
@@ -491,12 +555,12 @@ export function PartyDetailPage() {
                       <span className="italic">On Account</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 capitalize text-gray-600 dark:text-gray-400">{p.method.replace("_", " ")}</td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{formatCurrency(Number(p.amount))}</td>
-                  <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-2.5 capitalize text-gray-600 dark:text-gray-400">{p.method.replace("_", " ")}</td>
+                  <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(p.amount))}</td>
+                  <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
                     {p.cheque ? `${p.cheque.chequeNo} · ${p.cheque.status}` : "—"}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-4 py-2.5 text-right">
                     {p.cheque?.status === "pending" && canManageCheques && (
                       <div className="flex justify-end gap-2">
                         <button
@@ -524,7 +588,7 @@ export function PartyDetailPage() {
               ))}
               {paymentsList?.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                     No payments recorded yet.
                   </td>
                 </tr>
@@ -535,42 +599,45 @@ export function PartyDetailPage() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Ledger History</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <BookText size={16} className="text-gray-400" />
+          Ledger History
+        </h2>
         {ledgerLoading ? (
           <Loader />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 font-medium">Source</th>
-                  <th className="px-4 py-2 font-medium">Direction</th>
-                  <th className="px-4 py-2 font-medium">Amount</th>
+                  <th className="px-4 py-2.5 font-medium">Date</th>
+                  <th className="px-4 py-2.5 font-medium">Source</th>
+                  <th className="px-4 py-2.5 font-medium">Direction</th>
+                  <th className="px-4 py-2.5 font-medium">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {ledger?.entries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{new Date(entry.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-2 capitalize text-gray-600 dark:text-gray-400">{entry.sourceType.replace("_", " ")}</td>
-                    <td className="px-4 py-2">
+                  <tr key={entry.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{new Date(entry.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-2.5 capitalize text-gray-600 dark:text-gray-400">{entry.sourceType.replace("_", " ")}</td>
+                    <td className="px-4 py-2.5">
                       <span
-                        className={
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
                           entry.direction === "debit"
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-green-600 dark:text-green-400"
-                        }
+                            ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            : "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                        }`}
                       >
                         {entry.direction}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{formatCurrency(Number(entry.amount))}</td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{formatCurrency(Number(entry.amount))}</td>
                   </tr>
                 ))}
                 {ledger?.entries.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                       No ledger history yet.
                     </td>
                   </tr>

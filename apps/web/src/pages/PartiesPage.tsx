@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MessageCircle, ShoppingBag, Truck, User, Phone, MapPin, IdCard, Wallet } from "lucide-react";
+import { MessageCircle, Pencil, Plus, ShoppingBag, Truck, User, Phone, MapPin, IdCard, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
@@ -13,6 +13,31 @@ import { createParty, listParties, updateParty, type Party, type PartyInput } fr
 import { listPartyBills } from "../lib/api/payments";
 
 const emptyForm: PartyInput = { type: "customer", name: "", phone: "", cnic: "", address: "", creditLimit: 0 };
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function PartyAvatar({ name, type }: { name: string; type: "customer" | "supplier" }) {
+  const isCustomer = type === "customer";
+  return (
+    <div
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+        isCustomer
+          ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+          : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400"
+      }`}
+    >
+      {initials(name)}
+    </div>
+  );
+}
 
 function FieldWithIcon({ icon: Icon, children }: { icon: ComponentType<{ size?: number; className?: string }>; children: React.ReactNode }) {
   return (
@@ -226,88 +251,117 @@ export function PartiesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Customers</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Customers</h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            {data ? `${data.total} ${data.total === 1 ? "record" : "records"}` : " "}
+          </p>
+        </div>
         <button
           onClick={() => {
             setFormError(null);
             setModal({ mode: "create" });
           }}
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
+          <Plus size={16} />
           Add Customer
         </button>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           placeholder="Search name or phone…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className={inputClass + " max-w-sm"}
         />
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)} className={inputClass + " max-w-40"}>
-          <option value="">All</option>
-          <option value="customer">Customers</option>
-          <option value="supplier">Suppliers</option>
-        </select>
+        <div className="flex items-center gap-1 rounded-md border border-gray-300 p-0.5 dark:border-gray-700">
+          {(["", "customer", "supplier"] as const).map((opt) => (
+            <button
+              key={opt || "all"}
+              onClick={() => setTypeFilter(opt)}
+              className={`rounded px-3 py-1 text-xs font-medium capitalize ${
+                typeFilter === opt ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              }`}
+            >
+              {opt || "All"}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
         <Loader />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
               <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Type</th>
-                <th className="px-4 py-2 font-medium">Phone</th>
-                <th className="px-4 py-2 font-medium">Balance</th>
-                <th className="px-4 py-2 font-medium">Credit Limit</th>
-                <th className="px-4 py-2"></th>
+                <th className="px-4 py-2.5 font-medium">Name</th>
+                <th className="px-4 py-2.5 font-medium">Type</th>
+                <th className="px-4 py-2.5 font-medium">Phone</th>
+                <th className="px-4 py-2.5 font-medium">Balance</th>
+                <th className="px-4 py-2.5 font-medium">Credit Limit</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {data?.data.map((party) => (
-                <tr key={party.id}>
-                  <td className="px-4 py-2">
-                    <Link to={`/customers/${party.id}`} className="text-blue-600 hover:underline dark:text-blue-400">
-                      {party.name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 capitalize text-gray-600 dark:text-gray-400">{party.type}</td>
-                  <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{party.phone ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{formatCurrency(Number(party.cachedBalance))}</td>
-                  <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{formatCurrency(Number(party.creditLimit))}</td>
-                  <td className="px-4 py-2 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      {party.phone && Number(party.cachedBalance) > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => sendReminder(party)}
-                          disabled={reminderLoadingId === party.id}
-                          title="Send WhatsApp reminder (lists each pending bill)"
-                          className="text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
-                        >
-                          <MessageCircle size={16} />
-                        </button>
+              {data?.data.map((party) => {
+                const balance = Number(party.cachedBalance);
+                return (
+                  <tr key={party.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <td className="px-4 py-2.5">
+                      <Link to={`/customers/${party.id}`} className="flex items-center gap-3">
+                        <PartyAvatar name={party.name} type={party.type} />
+                        <span className="font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400">
+                          {party.name}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5 capitalize text-gray-500 dark:text-gray-400">{party.type}</td>
+                    <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">{party.phone ?? "—"}</td>
+                    <td className="px-4 py-2.5">
+                      {balance > 0.01 ? (
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(balance)}</span>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">Settled</span>
                       )}
-                      <button
-                        onClick={() => {
-                          setFormError(null);
-                          setModal({ mode: "edit", party });
-                        }}
-                        className="text-blue-600 hover:underline dark:text-blue-400"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
+                      {Number(party.creditLimit) > 0 ? formatCurrency(Number(party.creditLimit)) : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        {party.phone && balance > 0.01 && (
+                          <button
+                            type="button"
+                            onClick={() => sendReminder(party)}
+                            disabled={reminderLoadingId === party.id}
+                            title="Send WhatsApp reminder"
+                            className="text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
+                          >
+                            <MessageCircle size={16} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setFormError(null);
+                            setModal({ mode: "edit", party });
+                          }}
+                          title="Edit"
+                          className="text-gray-400 hover:text-blue-600 dark:text-gray-500 dark:hover:text-blue-400"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {data?.data.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                     No customers found.
                   </td>
                 </tr>
