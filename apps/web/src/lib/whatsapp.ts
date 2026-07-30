@@ -73,6 +73,16 @@ export function buildMaterialEstimateMessage(
   return `${greeting}, aap ki "${title}" (${dimensionsNote}) ke liye material ka andaza yeh hai:\n\n${itemLines}${costLine}\n\nYeh sirf ek andaza hai — exact quantity ke liye contractor/engineer se confirm karein. Shukriya!`;
 }
 
+export function buildQuotationShareMessage(quotationNo: string, url: string, customerName?: string | null): string {
+  const greeting = customerName ? `Assalam-o-Alaikum ${customerName}` : "Assalam-o-Alaikum";
+  return `${greeting}, aap ki quotation ${quotationNo} tayyar hai. Neeche diye gaye link se itemized price dekh kar seedha "Accept" kar sakte hain:\n\n${url}`;
+}
+
+export function buildOrderTrackingMessage(invoiceNo: string, url: string, customerName?: string | null): string {
+  const greeting = customerName ? `Assalam-o-Alaikum ${customerName}` : "Assalam-o-Alaikum";
+  return `${greeting}, aap ka order ${invoiceNo} track karne ke liye yeh link istemal karein:\n\n${url}`;
+}
+
 export function buildLowStockAlertMessage(items: { name: string; currentStock: number; minStock: number }[]): string {
   const lines = items.map((i) => `• ${i.name}: ${i.currentStock} (min ${i.minStock})`);
   return `Assalam-o-Alaikum, in ${items.length} items ka stock reorder point se neeche hai:\n\n${lines.join("\n")}\n\nBarah-e-karam jald reorder karein.`;

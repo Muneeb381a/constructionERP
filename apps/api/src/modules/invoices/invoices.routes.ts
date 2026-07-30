@@ -17,3 +17,4 @@ invoicesRoutes.post("/return", requireRole("owner", "manager", "cashier"), invoi
 invoicesRoutes.post("/:id/void", requireRole("owner", "manager"), invoicesController.voidInvoice);
 invoicesRoutes.post("/:id/delivery", requireRole("owner", "manager", "cashier"), invoicesController.assignDelivery);
 invoicesRoutes.post("/:id/delivery/complete", requireRole("owner", "manager", "cashier"), invoicesController.markDelivered);
+invoicesRoutes.post("/:id/public-link", requireRole("owner", "manager", "cashier"), invoicesController.getPublicLink);

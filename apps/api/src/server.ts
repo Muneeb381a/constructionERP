@@ -12,12 +12,14 @@ import { partiesRoutes } from "./modules/parties/parties.routes.js";
 import { publicPartyRoutes } from "./modules/parties/public.routes.js";
 import { ledgerAllRoutes } from "./modules/ledger/ledger.routes.js";
 import { invoicesRoutes } from "./modules/invoices/invoices.routes.js";
+import { publicTrackingRoutes } from "./modules/invoices/public.routes.js";
 import { paymentsRoutes } from "./modules/payments/payments.routes.js";
 import { cashbookRoutes } from "./modules/cashbook/cashbook.routes.js";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
 import { reconciliationRoutes } from "./modules/reconciliation/reconciliation.routes.js";
 import { reportsRoutes } from "./modules/reports/reports.routes.js";
 import { quotationsRoutes } from "./modules/quotations/quotations.routes.js";
+import { publicQuotationRoutes } from "./modules/quotations/public.routes.js";
 import { tenantsRoutes } from "./modules/tenants/tenants.routes.js";
 import { employeesRoutes } from "./modules/employees/employees.routes.js";
 import { expensesRoutes } from "./modules/expenses/expenses.routes.js";
@@ -61,6 +63,8 @@ app.use("/api/estimator", estimatorRoutes);
 app.use("/api/rate-locks", rateLocksRoutes);
 app.use("/api/projects", projectsRoutes);
 app.use("/api/public", publicPartyRoutes);
+app.use("/api/public/quotations", publicQuotationRoutes);
+app.use("/api/public/tracking", publicTrackingRoutes);
 
 app.use(errorHandler);
 

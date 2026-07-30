@@ -12,3 +12,4 @@ quotationsRoutes.get("/:id", quotationsController.get);
 quotationsRoutes.post("/", requireRole("owner", "manager", "cashier"), quotationsController.create);
 quotationsRoutes.patch("/:id/status", requireRole("owner", "manager", "cashier"), quotationsController.updateStatus);
 quotationsRoutes.post("/:id/convert", requireRole("owner", "manager", "cashier"), quotationsController.convert);
+quotationsRoutes.post("/:id/public-link", requireRole("owner", "manager", "cashier"), quotationsController.getPublicLink);

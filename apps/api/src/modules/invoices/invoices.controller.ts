@@ -92,3 +92,17 @@ export async function createPurchase(req: Request, res: Response) {
   );
   res.status(result.idempotentReplay ? 200 : 201).json(result);
 }
+
+export async function getPublicLink(req: Request, res: Response) {
+  const token = await invoicesService.getOrCreateInvoicePublicToken(req.auth!.tenantId, parseId(req.params.id as string));
+  res.json({ token });
+}
+
+export async function publicTracking(req: Request, res: Response) {
+  const token = req.params.token as string;
+  // publicToken is a uuid column — a garbage string throws a Postgres type error rather
+  // than an empty result, so reject the shape here for a clean 404 instead of a 500.
+  if (!UUID_RE.test(token)) throw new HttpError(404, "Invalid or expired link");
+  const result = await invoicesService.getPublicTrackingByToken(token);
+  res.json(result);
+}

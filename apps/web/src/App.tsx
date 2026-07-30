@@ -31,6 +31,8 @@ import { ExpensesPage } from "./pages/ExpensesPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PublicBalancePage } from "./pages/PublicBalancePage";
+import { PublicQuotationPage } from "./pages/PublicQuotationPage";
+import { PublicOrderStatusPage } from "./pages/PublicOrderStatusPage";
 
 function RedirectToCustomer() {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +45,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/balance/:token" element={<PublicBalancePage />} />
+      <Route path="/quote/:token" element={<PublicQuotationPage />} />
+      <Route path="/track/:token" element={<PublicOrderStatusPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>

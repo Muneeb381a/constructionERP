@@ -2,15 +2,17 @@ import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toPng } from "html-to-image";
-import { FileDown } from "lucide-react";
+import { FileDown, MessageCircle } from "lucide-react";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
+import { buildOrderTrackingMessage, buildWhatsAppLink, buildWhatsAppShareLink } from "../lib/whatsapp";
 import { useAuthStore } from "../store/authStore";
 import {
   assignDelivery,
   fetchDeliveryChallanPdf,
   fetchInvoicePdf,
   getInvoice,
+  getInvoicePublicLink,
   markDelivered,
   voidInvoice,
   type Invoice,
@@ -42,8 +44,14 @@ function DeliverySection({ invoice, canManage }: { invoice: Invoice; canManage: 
   const [employeeId, setEmployeeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [downloadingChallan, setDownloadingChallan] = useState(false);
+  const [sharingTracking, setSharingTracking] = useState(false);
 
   const { data: employees } = useQuery({ queryKey: ["employees", ""], queryFn: () => listEmployees() });
+  const { data: party } = useQuery({
+    queryKey: ["party", invoice.partyId],
+    queryFn: () => getParty(invoice.partyId!),
+    enabled: invoice.type === "sale" && !!invoice.partyId,
+  });
 
   async function handleDownloadChallan() {
     setError(null);
@@ -57,6 +65,22 @@ function DeliverySection({ invoice, canManage }: { invoice: Invoice; canManage: 
       setError(axiosErrorMessage(err) ?? "Failed to generate delivery challan");
     } finally {
       setDownloadingChallan(false);
+    }
+  }
+
+  async function handleShareTracking() {
+    setError(null);
+    setSharingTracking(true);
+    try {
+      const { token } = await getInvoicePublicLink(invoice.id);
+      const url = `${window.location.origin}/track/${token}`;
+      const message = buildOrderTrackingMessage(invoice.invoiceNo, url, party?.name);
+      const link = party?.phone ? buildWhatsAppLink(party.phone, message) : buildWhatsAppShareLink(message);
+      window.open(link, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError(axiosErrorMessage(err) ?? "Failed to create tracking link");
+    } finally {
+      setSharingTracking(false);
     }
   }
 
@@ -126,16 +150,28 @@ function DeliverySection({ invoice, canManage }: { invoice: Invoice; canManage: 
           )}
         </div>
       )}
-      {invoice.deliveryEmployeeId && (
-        <button
-          onClick={handleDownloadChallan}
-          disabled={downloadingChallan}
-          className="mt-3 flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline disabled:opacity-50 dark:text-blue-400"
-        >
-          <FileDown size={15} />
-          {downloadingChallan ? "Preparing…" : "Print Delivery Challan"}
-        </button>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        {invoice.deliveryEmployeeId && (
+          <button
+            onClick={handleDownloadChallan}
+            disabled={downloadingChallan}
+            className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline disabled:opacity-50 dark:text-blue-400"
+          >
+            <FileDown size={15} />
+            {downloadingChallan ? "Preparing…" : "Print Delivery Challan"}
+          </button>
+        )}
+        {invoice.type === "sale" && (
+          <button
+            onClick={handleShareTracking}
+            disabled={sharingTracking}
+            className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline disabled:opacity-50 dark:text-blue-400"
+          >
+            <MessageCircle size={15} />
+            {sharingTracking ? "Preparing…" : "Share Tracking Link"}
+          </button>
+        )}
+      </div>
       {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );

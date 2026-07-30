@@ -47,3 +47,27 @@ export async function convert(req: Request, res: Response) {
   const result = await quotationsService.convertToInvoice(ctx(req), parseId(req.params.id as string), input);
   res.status(201).json(result);
 }
+
+export async function getPublicLink(req: Request, res: Response) {
+  const token = await quotationsService.getOrCreateQuotationPublicToken(req.auth!.tenantId, parseId(req.params.id as string));
+  res.json({ token });
+}
+
+function parseToken(raw: string) {
+  // publicToken is a uuid column — a garbage string throws a Postgres type error rather
+  // than an empty result, so reject the shape here for a clean 404 instead of a 500.
+  if (!UUID_RE.test(raw)) throw new HttpError(404, "Invalid or expired link");
+  return raw;
+}
+
+export async function publicView(req: Request, res: Response) {
+  const token = parseToken(req.params.token as string);
+  const result = await quotationsService.getPublicQuotationByToken(token);
+  res.json(result);
+}
+
+export async function publicAccept(req: Request, res: Response) {
+  const token = parseToken(req.params.token as string);
+  const result = await quotationsService.acceptPublicQuotation(token);
+  res.json(result);
+}

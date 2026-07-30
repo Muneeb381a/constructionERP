@@ -1,15 +1,24 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { MessageCircle } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
+import { buildQuotationShareMessage, buildWhatsAppLink, buildWhatsAppShareLink } from "../lib/whatsapp";
 import { useAuthStore } from "../store/authStore";
 import { useShopContext } from "../hooks/useShopContext";
 import { Loader } from "../components/Loader";
 import { listUnits } from "../lib/api/units";
 import { getProduct } from "../lib/api/products";
-import { getQuotation, updateQuotationStatus, convertQuotation, type QuotationStatus } from "../lib/api/quotations";
+import { getParty } from "../lib/api/parties";
+import {
+  getQuotation,
+  getQuotationPublicLink,
+  updateQuotationStatus,
+  convertQuotation,
+  type QuotationStatus,
+} from "../lib/api/quotations";
 
 const STATUS_STYLES: Record<QuotationStatus, string> = {
   draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
@@ -80,11 +89,19 @@ export function QuotationDetailPage() {
 
   const [showConvert, setShowConvert] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["quotation", id],
     queryFn: () => getQuotation(id!),
     enabled: !!id,
+  });
+
+  const { data: party } = useQuery({
+    queryKey: ["party", data?.quotation.partyId],
+    queryFn: () => getParty(data!.quotation.partyId!),
+    enabled: !!data?.quotation.partyId,
   });
 
   const { data: units } = useQuery({ queryKey: ["units"], queryFn: listUnits });
@@ -114,6 +131,22 @@ export function QuotationDetailPage() {
 
   const { quotation } = data;
 
+  async function shareQuotation() {
+    setShareError(null);
+    setSharing(true);
+    try {
+      const { token } = await getQuotationPublicLink(id!);
+      const url = `${window.location.origin}/quote/${token}`;
+      const message = buildQuotationShareMessage(quotation.quotationNo, url, party?.name);
+      const link = party?.phone ? buildWhatsAppLink(party.phone, message) : buildWhatsAppShareLink(message);
+      window.open(link, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setShareError(axiosErrorMessage(err) ?? "Failed to create share link");
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -124,9 +157,22 @@ export function QuotationDetailPage() {
           <h1 className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">{quotation.quotationNo}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{new Date(quotation.createdAt).toLocaleString()}</p>
         </div>
-        <span className={`h-fit rounded-full px-3 py-1 text-xs font-medium capitalize ${STATUS_STYLES[quotation.status]}`}>{quotation.status}</span>
+        <div className="flex items-center gap-2">
+          {quotation.status !== "converted" && (
+            <button
+              onClick={shareQuotation}
+              disabled={sharing}
+              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <MessageCircle size={14} />
+              {sharing ? "Preparing…" : "Share via WhatsApp"}
+            </button>
+          )}
+          <span className={`h-fit rounded-full px-3 py-1 text-xs font-medium capitalize ${STATUS_STYLES[quotation.status]}`}>{quotation.status}</span>
+        </div>
       </div>
 
+      {shareError && <p className="text-sm text-red-600 dark:text-red-400">{shareError}</p>}
       {quotation.notes && <p className="text-sm text-gray-600 dark:text-gray-400">{quotation.notes}</p>}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">

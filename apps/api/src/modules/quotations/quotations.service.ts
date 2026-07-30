@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { branches, parties, quotationItems, quotations } from "../../db/schema.js";
+import { branches, parties, products, quotationItems, quotations, units } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { resolveLineItems } from "../invoices/shared.js";
 import { generateInvoiceNumber } from "../invoices/invoiceNumber.service.js";
@@ -185,4 +185,64 @@ export async function convertToInvoice(
     .where(eq(quotations.id, quotationId));
 
   return result;
+}
+
+/** Lazily creates and returns a quotation's public accept-link token — same token every
+ * time once generated, so the link a shop shares over WhatsApp stays valid. */
+export async function getOrCreateQuotationPublicToken(tenantId: string, quotationId: string) {
+  const { quotation } = await getQuotation(tenantId, quotationId);
+  if (quotation.publicToken) return quotation.publicToken;
+
+  const [updated] = await db
+    .update(quotations)
+    .set({ publicToken: sql`gen_random_uuid()` })
+    .where(and(eq(quotations.id, quotationId), eq(quotations.tenantId, tenantId)))
+    .returning({ publicToken: quotations.publicToken });
+  return updated.publicToken!;
+}
+
+/** No-login view for a customer following a shared quotation link — a narrow, safe slice
+ * (itemized quote + status), nothing else about the tenant or its catalog. */
+export async function getPublicQuotationByToken(token: string) {
+  const [quotation] = await db.select().from(quotations).where(eq(quotations.publicToken, token)).limit(1);
+  if (!quotation) throw new HttpError(404, "Invalid or expired link");
+
+  const items = await db
+    .select({
+      productName: products.name,
+      unitName: units.name,
+      quantity: quotationItems.quantity,
+      unitPrice: quotationItems.unitPrice,
+      lineTotal: quotationItems.lineTotal,
+    })
+    .from(quotationItems)
+    .innerJoin(products, eq(products.id, quotationItems.productId))
+    .innerJoin(units, eq(units.id, quotationItems.unitId))
+    .where(eq(quotationItems.quotationId, quotation.id));
+
+  return {
+    quotationNo: quotation.quotationNo,
+    status: quotation.status,
+    validUntil: quotation.validUntil,
+    notes: quotation.notes,
+    subtotal: quotation.subtotal,
+    discount: quotation.discount,
+    totalAmount: quotation.totalAmount,
+    items,
+  };
+}
+
+/** The customer's own "Accept" tap on the public link — same status transition an owner/
+ * manager/cashier could make internally, just triggered without a login via the token. */
+export async function acceptPublicQuotation(token: string) {
+  const [quotation] = await db.select().from(quotations).where(eq(quotations.publicToken, token)).limit(1);
+  if (!quotation) throw new HttpError(404, "Invalid or expired link");
+
+  if (quotation.status === "accepted") return { status: "accepted" as const };
+  if (quotation.status !== "draft" && quotation.status !== "sent") {
+    throw new HttpError(409, `This quotation is ${quotation.status} and can no longer be accepted`);
+  }
+
+  const updated = await updateQuotationStatus(quotation.tenantId, quotation.id, "accepted");
+  return { status: updated.status };
 }

@@ -130,6 +130,30 @@ export async function fetchDeliveryChallanPdf(id: string) {
   return res.data as Blob;
 }
 
+export async function getInvoicePublicLink(id: string) {
+  const res = await apiClient.post<{ token: string }>(`/invoices/${id}/public-link`);
+  return res.data;
+}
+
+export type PublicTrackingItem = { productName: string; unitName: string; quantity: string };
+
+export type PublicTracking = {
+  invoiceNo: string;
+  status: "draft" | "confirmed" | "void";
+  deliveryStatus: "not_applicable" | "pending" | "delivered";
+  createdAt: string;
+  deliveredAt: string | null;
+  totalAmount: string;
+  driverName: string | null;
+  driverPhone: string | null;
+  items: PublicTrackingItem[];
+};
+
+export async function getPublicTracking(token: string) {
+  const res = await apiClient.get<PublicTracking>(`/public/tracking/${token}`);
+  return res.data;
+}
+
 export type CreateReturnInvoiceInput = {
   idempotencyKey: string;
   originalInvoiceId: string;

@@ -75,3 +75,31 @@ export async function convertQuotation(id: string, input: { warehouseId: string;
   const res = await apiClient.post(`/quotations/${id}/convert`, input);
   return res.data as { invoice: { id: string; invoiceNo: string } };
 }
+
+export async function getQuotationPublicLink(id: string) {
+  const res = await apiClient.post<{ token: string }>(`/quotations/${id}/public-link`);
+  return res.data;
+}
+
+export type PublicQuotationItem = { productName: string; unitName: string; quantity: string; unitPrice: string; lineTotal: string };
+
+export type PublicQuotation = {
+  quotationNo: string;
+  status: QuotationStatus;
+  validUntil: string | null;
+  notes: string | null;
+  subtotal: string;
+  discount: string;
+  totalAmount: string;
+  items: PublicQuotationItem[];
+};
+
+export async function getPublicQuotation(token: string) {
+  const res = await apiClient.get<PublicQuotation>(`/public/quotations/${token}`);
+  return res.data;
+}
+
+export async function acceptPublicQuotation(token: string) {
+  const res = await apiClient.post<{ status: QuotationStatus }>(`/public/quotations/${token}/accept`);
+  return res.data;
+}

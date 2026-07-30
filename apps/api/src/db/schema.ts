@@ -192,6 +192,7 @@ export const invoices = pgTable("invoices", {
   deliveryEmployeeId: uuid("delivery_employee_id").references(() => employees.id),
   deliveryStatus: deliveryStatusEnum("delivery_status").notNull().default("not_applicable"),
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  publicToken: uuid("public_token").unique(), // lazily generated — customer order-tracking link, no login
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => ({
   invoiceNoPerTenantIdx: uniqueIndex("invoices_tenant_invoiceno_idx").on(t.tenantId, t.invoiceNo),
@@ -244,6 +245,7 @@ export const quotations = pgTable("quotations", {
   notes: text("notes"),
   // set once a sale invoice is created from this quotation — see quotations.service.ts convertToInvoice()
   convertedInvoiceId: uuid("converted_invoice_id").references(() => invoices.id),
+  publicToken: uuid("public_token").unique(), // lazily generated — customer accept-quotation link, no login
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => ({
   quotationNoPerTenantIdx: uniqueIndex("quotations_tenant_quotationno_idx").on(t.tenantId, t.quotationNo),
