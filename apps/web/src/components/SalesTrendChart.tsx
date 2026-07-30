@@ -43,22 +43,27 @@ export function SalesTrendChart({ data }: { data: SalesTrendPoint[] }) {
 
   const salesPath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${xFor(i)} ${yFor(d.salesTotal)}`).join(" ");
   const purchasesPath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${xFor(i)} ${yFor(d.purchasesTotal)}`).join(" ");
+  const salesAreaPath = `${salesPath} L ${xFor(data.length - 1)} ${yFor(0)} L ${xFor(0)} ${yFor(0)} Z`;
   const gridValues = [0, maxValue / 2, maxValue];
   const hovered = hoverIndex != null ? data[hoverIndex] : null;
+  const lastIndex = data.length - 1;
 
   // sparse x-axis labels so dates don't collide — first, last, and a few in between
   const labelEvery = Math.max(1, Math.ceil(data.length / 6));
 
+  const totalSales = data.reduce((sum, d) => sum + d.salesTotal, 0);
+  const totalPurchases = data.reduce((sum, d) => sum + d.purchasesTotal, 0);
+
   return (
     <div>
-      <div className="mb-2 flex items-center gap-4 text-xs">
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs">
         <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-          <span className="inline-block h-0.5 w-4 rounded-full bg-blue-600 dark:bg-blue-400" />
-          Sales
+          <span className="inline-block h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+          Sales <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(totalSales)}</span>
         </span>
         <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-          <span className="inline-block h-0.5 w-4 rounded-full bg-orange-500 dark:bg-orange-400" />
-          Purchases
+          <span className="inline-block h-2 w-2 rounded-full bg-orange-500 dark:bg-orange-400" />
+          Purchases <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(totalPurchases)}</span>
         </span>
       </div>
 
@@ -69,6 +74,13 @@ export function SalesTrendChart({ data }: { data: SalesTrendPoint[] }) {
         onPointerMove={handleMove}
         onPointerLeave={() => setHoverIndex(null)}
       >
+        <defs>
+          <linearGradient id="salesAreaFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity={0.16} className="text-blue-600 dark:text-blue-400" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity={0} className="text-blue-600 dark:text-blue-400" />
+          </linearGradient>
+        </defs>
+
         {gridValues.map((v, i) => (
           <g key={i}>
             <line
@@ -93,8 +105,13 @@ export function SalesTrendChart({ data }: { data: SalesTrendPoint[] }) {
           ) : null,
         )}
 
+        <path d={salesAreaPath} fill="url(#salesAreaFill)" stroke="none" />
         <path d={purchasesPath} fill="none" className="stroke-orange-500 dark:stroke-orange-400" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         <path d={salesPath} fill="none" className="stroke-blue-600 dark:stroke-blue-400" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* emphasized endpoint — the most recent day's figures, always visible */}
+        <circle cx={xFor(lastIndex)} cy={yFor(data[lastIndex].salesTotal)} r={3.5} className="fill-blue-600 stroke-white dark:fill-blue-400 dark:stroke-gray-900" strokeWidth={1.5} />
+        <circle cx={xFor(lastIndex)} cy={yFor(data[lastIndex].purchasesTotal)} r={3.5} className="fill-orange-500 stroke-white dark:fill-orange-400 dark:stroke-gray-900" strokeWidth={1.5} />
 
         {hoverIndex != null && (
           <>
