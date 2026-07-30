@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { HttpError } from "../../middleware/error.middleware.js";
 import * as partiesService from "./parties.service.js";
 import { generatePartyStatementPdf } from "./statement.service.js";
+import { hasBouncedCheque } from "../payments/payments.service.js";
 import { createPartySchema, listPartiesQuerySchema, updatePartySchema } from "./parties.schema.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,8 +31,12 @@ export async function topCustomers(req: Request, res: Response) {
 }
 
 export async function get(req: Request, res: Response) {
-  const party = await partiesService.getParty(req.auth!.tenantId, parseId(req.params.id as string));
-  res.json(party);
+  const partyId = parseId(req.params.id as string);
+  const [party, bounced] = await Promise.all([
+    partiesService.getParty(req.auth!.tenantId, partyId),
+    hasBouncedCheque(req.auth!.tenantId, partyId),
+  ]);
+  res.json({ ...party, hasBouncedCheque: bounced });
 }
 
 export async function create(req: Request, res: Response) {

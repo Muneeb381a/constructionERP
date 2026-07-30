@@ -78,3 +78,21 @@ export async function updateChequeStatus(chequeId: string, status: "cleared" | "
   const res = await apiClient.patch<Cheque>(`/payments/cheques/${chequeId}/status`, { status });
   return res.data;
 }
+
+export type ChequeRegisterEntry = {
+  id: string;
+  chequeNo: string;
+  bankName: string | null;
+  dueDate: string;
+  status: "pending" | "cleared" | "bounced";
+  amount: string;
+  partyId: string;
+  partyName: string;
+  partyType: "customer" | "supplier";
+  createdAt: string;
+};
+
+export async function listChequeRegister(params: { status?: "pending" | "cleared" | "bounced" } = {}) {
+  const res = await apiClient.get<ChequeRegisterEntry[]>("/payments/cheques", { params });
+  return res.data;
+}

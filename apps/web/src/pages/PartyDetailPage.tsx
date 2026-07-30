@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { BookText, CreditCard, Download, Link2, MessageCircle, Receipt, Repeat, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
+import { AlertTriangle, BookText, CreditCard, Download, Link2, Lock, MessageCircle, Receipt, Repeat, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
@@ -12,6 +12,9 @@ import { useSendReminder } from "../hooks/useSendReminder";
 import { useAuthStore } from "../store/authStore";
 import { getParty, getPartyPublicLink, downloadPartyStatement, type Party } from "../lib/api/parties";
 import { getPartyLedger, postLedgerAdjustment, postOpeningBalance } from "../lib/api/ledger";
+import { createRateLock, listRateLocksForParty, type CreateRateLockInput } from "../lib/api/rateLocks";
+import { ProductPicker } from "../components/ProductPicker";
+import type { Product } from "../lib/api/products";
 import {
   createPayment,
   listPartyBills,
@@ -367,6 +370,106 @@ function LedgerEntryForm({
   );
 }
 
+function RateLockForm({ partyId, onDone }: { partyId: string; onDone: () => void }) {
+  const queryClient = useQueryClient();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [lockedPrice, setLockedPrice] = useState(0);
+  const today = new Date().toISOString().slice(0, 10);
+  const [validFrom, setValidFrom] = useState(today);
+  const [validUntil, setValidUntil] = useState("");
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const input: CreateRateLockInput = {
+        partyId,
+        productId: product!.id,
+        lockedPrice,
+        validFrom,
+        validUntil,
+        notes: notes || null,
+      };
+      return createRateLock(input);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["party-rate-locks", partyId] });
+      onDone();
+    },
+    onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to create rate lock"),
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
+      className="space-y-4"
+    >
+      <div>
+        <label className={labelClass}>Product</label>
+        {product ? (
+          <div className="mt-1 flex items-center justify-between rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700">
+            <span className="text-gray-900 dark:text-gray-100">{product.name}</span>
+            <button type="button" onClick={() => setProduct(null)} className="text-xs text-gray-400 hover:text-red-600">
+              Change
+            </button>
+          </div>
+        ) : (
+          <ProductPicker
+            onSelect={(p) => {
+              setProduct(p);
+              setLockedPrice(Number(p.salePrice));
+            }}
+          />
+        )}
+      </div>
+      <div>
+        <label className={labelClass}>Locked Price (per base unit)</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          required
+          value={lockedPrice}
+          onChange={(e) => setLockedPrice(Number(e.target.value))}
+          className={inputClass}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Valid From</label>
+          <input type="date" required value={validFrom} onChange={(e) => setValidFrom(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Valid Until</label>
+          <input type="date" required value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={inputClass} />
+        </div>
+      </div>
+      <div>
+        <label className={labelClass}>Notes (optional)</label>
+        <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="e.g. Reason for the price protection" />
+      </div>
+
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={!product || !validUntil || mutation.isPending}
+          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {mutation.isPending ? "Saving…" : "Lock Rate"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function PartyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -375,7 +478,7 @@ export function PartyDetailPage() {
   const canManageLedger = role === "owner" || role === "manager";
   const canManageCheques = role === "owner" || role === "manager" || role === "accountant";
 
-  const [modal, setModal] = useState<null | "payment" | "opening-balance" | "adjustment">(null);
+  const [modal, setModal] = useState<null | "payment" | "opening-balance" | "adjustment" | "rate-lock">(null);
   const [chequeError, setChequeError] = useState<string | null>(null);
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
 
@@ -388,6 +491,12 @@ export function PartyDetailPage() {
   const { data: ledger, isLoading: ledgerLoading } = useQuery({
     queryKey: ["party-ledger", id],
     queryFn: () => getPartyLedger(id!),
+    enabled: !!id,
+  });
+
+  const { data: rateLocks } = useQuery({
+    queryKey: ["party-rate-locks", id],
+    queryFn: () => listRateLocksForParty(id!),
     enabled: !!id,
   });
 
@@ -502,6 +611,12 @@ export function PartyDetailPage() {
                 </span>
                 {party.phone && <span className="text-sm text-gray-500 dark:text-gray-400">{party.phone}</span>}
               </div>
+              {party.hasBouncedCheque && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                  <AlertTriangle size={12} />
+                  Has a bounced cheque on record
+                </div>
+              )}
             </div>
 
             <div
@@ -661,6 +776,71 @@ export function PartyDetailPage() {
             </div>
           </div>
 
+          {isCustomer && (
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <Lock size={16} className="text-gray-400" />
+                  Rate Locks
+                </h2>
+                {canManageLedger && (
+                  <button
+                    onClick={() => setModal("rate-lock")}
+                    className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    Lock a Rate
+                  </button>
+                )}
+              </div>
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+                    <tr>
+                      <th className="px-4 py-2.5 font-medium">Product</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Locked Price</th>
+                      <th className="px-4 py-2.5 font-medium">Valid</th>
+                      <th className="px-4 py-2.5 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {rateLocks?.map((lock) => {
+                      const active = new Date(lock.validFrom) <= new Date() && new Date() <= new Date(lock.validUntil);
+                      return (
+                        <tr key={lock.id}>
+                          <td className="px-4 py-2.5 text-gray-900 dark:text-gray-100">{lock.productName}</td>
+                          <td className="px-4 py-2.5 text-right font-medium text-gray-900 dark:text-gray-100">
+                            {formatCurrency(Number(lock.lockedPrice))}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-400">
+                            {new Date(lock.validFrom).toLocaleDateString()} – {new Date(lock.validUntil).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                active
+                                  ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                              }`}
+                            >
+                              {active ? "Active" : "Expired"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {rateLocks?.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                          No rate locks for this customer.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div>
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
               <BookText size={16} className="text-gray-400" />
@@ -726,6 +906,11 @@ export function PartyDetailPage() {
       {modal === "adjustment" && (
         <Modal title="Post Ledger Adjustment" onClose={() => setModal(null)}>
           <LedgerEntryForm partyId={id!} kind="adjustment" onDone={() => setModal(null)} />
+        </Modal>
+      )}
+      {modal === "rate-lock" && (
+        <Modal title="Lock a Rate" onClose={() => setModal(null)}>
+          <RateLockForm partyId={id!} onDone={() => setModal(null)} />
         </Modal>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { auditLog, invoiceItems, invoices, parties, payments } from "../../db/schema.js";
+import { auditLog, invoiceItems, invoices, parties, payments, projects } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { adjustStock } from "../inventory/stock.service.js";
 import { postLedgerEntry } from "../ledger/ledger.service.js";
@@ -40,7 +40,16 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
       party = await lockParty(tx, tenantId, input.partyId);
     }
 
-    const { items: preparedItems, subtotal } = await resolveLineItems(tx, tenantId, input.items, "salePrice");
+    if (input.projectId) {
+      const [project] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, input.projectId), eq(projects.tenantId, tenantId)))
+        .limit(1);
+      if (!project) throw new HttpError(400, "projectId does not refer to a project in this tenant");
+    }
+
+    const { items: preparedItems, subtotal } = await resolveLineItems(tx, tenantId, input.items, "salePrice", input.partyId);
 
     const discount = input.discount ?? 0;
     if (discount > subtotal) throw new HttpError(400, "discount cannot exceed the invoice subtotal");
@@ -87,6 +96,7 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
         status: "confirmed",
         invoiceNo,
         partyId: input.partyId ?? null,
+        projectId: input.projectId ?? null,
         userId,
         subtotal: subtotal.toString(),
         discount: discount.toString(),

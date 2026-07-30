@@ -55,3 +55,16 @@ export async function listAllLedger(params: { partyType?: "customer" | "supplier
   const res = await apiClient.get<AllLedgerResponse>("/ledger", { params });
   return res.data;
 }
+
+export type LedgerIntegrityResult = {
+  valid: boolean;
+  brokenAt: string | null;
+  checkedCount: number;
+  legacyUncheckedCount: number;
+  totalEntries: number;
+};
+
+export async function verifyLedgerIntegrity() {
+  const res = await apiClient.get<LedgerIntegrityResult>("/ledger/verify-integrity");
+  return res.data;
+}

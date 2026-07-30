@@ -50,6 +50,11 @@ export async function openingBalance(req: Request, res: Response) {
   res.status(201).json(entry);
 }
 
+export async function verifyIntegrity(req: Request, res: Response) {
+  const result = await ledgerService.verifyLedgerIntegrity(req.auth!.tenantId);
+  res.json(result);
+}
+
 export async function adjustment(req: Request, res: Response) {
   const tenantId = req.auth!.tenantId;
   const partyId = req.params.partyId as string;

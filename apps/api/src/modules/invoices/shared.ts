@@ -3,6 +3,7 @@ import type { DbOrTx } from "../../db/index.js";
 import { branches, productUnitConversions, products, warehouses } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { lockParty } from "../parties/parties.service.js";
+import { getActiveRateLockPrice } from "../rateLocks/rateLocks.service.js";
 
 export { lockParty };
 
@@ -40,6 +41,7 @@ export async function resolveLineItems(
   tenantId: string,
   items: LineItemInput[],
   priceField: "salePrice" | "purchasePrice",
+  partyId?: string | null,
 ): Promise<{ items: PreparedLineItem[]; subtotal: number }> {
   const prepared: PreparedLineItem[] = [];
 
@@ -76,8 +78,16 @@ export async function resolveLineItems(
         `An explicit unitPrice is required for product "${product.name}" when using a unit other than its base unit`,
       );
     }
+    // A rate lock only ever substitutes the DEFAULT (product.salePrice) — an explicit
+    // unitPrice from the client (a cashier's own override) still wins over it.
+    let fallbackPrice = Number(product[priceField]);
+    if (priceField === "salePrice" && partyId && item.unitId === product.baseUnitId) {
+      const lockedPrice = await getActiveRateLockPrice(tx, tenantId, partyId, item.productId);
+      if (lockedPrice != null) fallbackPrice = lockedPrice;
+    }
+
     // unitPrice is snapshotted here and only here — never re-derived from products.* later
-    const unitPrice = item.unitPrice ?? Number(product[priceField]);
+    const unitPrice = item.unitPrice ?? fallbackPrice;
     const lineTotal = roundMoney(item.quantity * unitPrice);
     const baseQuantity = roundQty(item.quantity * factor);
 

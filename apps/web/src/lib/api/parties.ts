@@ -13,6 +13,8 @@ export type Party = {
   balanceUpdatedAt: string | null;
   lastReminderSentAt: string | null;
   createdAt: string;
+  /** Only present on the single-party GET (party detail), not on list/search results. */
+  hasBouncedCheque?: boolean;
 };
 
 export type PartyListResponse = {

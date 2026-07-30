@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Camera, User as UserIcon } from "lucide-react";
+import { Building2, Camera, ShieldCheck, User as UserIcon } from "lucide-react";
 import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
 import { getMe, updateMe, uploadMyAvatar } from "../lib/api/users";
 import { getMyTenant, updateTenant, uploadTenantLogo, type Tenant } from "../lib/api/tenants";
+import { verifyLedgerIntegrity, type LedgerIntegrityResult } from "../lib/api/ledger";
 
 function AvatarPicker({
   imageUrl,
@@ -319,6 +320,62 @@ function PreferencesSection() {
   );
 }
 
+function LedgerIntegritySection() {
+  const [result, setResult] = useState<LedgerIntegrityResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: verifyLedgerIntegrity,
+    onSuccess: setResult,
+    onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to verify ledger"),
+  });
+
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <ShieldCheck size={16} className="text-gray-400" />
+        Ledger Integrity
+      </h2>
+      <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+        Every ledger entry is cryptographically chained to the one before it. This checks that no historical
+        balance-affecting record has been altered outside the app.
+      </p>
+
+      <button
+        onClick={() => {
+          setError(null);
+          mutation.mutate();
+        }}
+        disabled={mutation.isPending}
+        className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+      >
+        {mutation.isPending ? "Verifying…" : "Verify Ledger Integrity"}
+      </button>
+
+      {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      {result && (
+        <div
+          className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+            result.valid
+              ? "border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : "border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
+          }`}
+        >
+          {result.valid ? (
+            <p>
+              Chain intact — {result.checkedCount} of {result.totalEntries} entries verified
+              {result.legacyUncheckedCount > 0 ? ` (${result.legacyUncheckedCount} legacy entries unchecked)` : ""}.
+            </p>
+          ) : (
+            <p>Chain broken at entry {result.brokenAt} — a historical record no longer matches its recorded hash.</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canManageShop = role === "owner" || role === "manager";
@@ -333,6 +390,7 @@ export function SettingsPage() {
         <>
           <ShopDetailsSection />
           <PreferencesSection />
+          <LedgerIntegritySection />
         </>
       )}
     </div>

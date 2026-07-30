@@ -19,6 +19,7 @@ export type Invoice = {
   invoiceNo: string;
   partyId: string | null;
   partyName: string | null;
+  projectId: string | null;
   userId: string | null;
   originalInvoiceId: string | null;
   subtotal: string;
@@ -38,6 +39,7 @@ export type CreateSaleInvoiceInput = {
   branchId: string;
   warehouseId: string;
   partyId?: string | null;
+  projectId?: string | null;
   discount?: number;
   overrideCreditLimit?: boolean;
   payment?: {

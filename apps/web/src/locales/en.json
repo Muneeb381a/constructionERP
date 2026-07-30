@@ -16,6 +16,7 @@
     "invoices": "Invoices",
     "quotations": "Quotations",
     "estimator": "Material Estimator",
+    "projects": "Projects",
     "products": "Products",
     "customers": "Customers",
     "stock": "Stock",
@@ -24,6 +25,7 @@
     "expenses": "Expenses",
     "employees": "Employees",
     "closing": "Day-End Closing",
+    "cheques": "Cheque Register",
     "settings": "Settings",
     "logout": "Log out"
   },

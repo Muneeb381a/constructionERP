@@ -13,3 +13,4 @@ ledgerRoutes.post("/adjustment", requireRole("owner", "manager"), ledgerControll
 export const ledgerAllRoutes = Router();
 ledgerAllRoutes.use(authenticate);
 ledgerAllRoutes.get("/", requireRole("owner", "manager", "accountant"), ledgerController.listAll);
+ledgerAllRoutes.get("/verify-integrity", requireRole("owner", "manager"), ledgerController.verifyIntegrity);

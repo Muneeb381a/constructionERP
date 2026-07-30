@@ -9,12 +9,15 @@ import { useInvoiceCart } from "../hooks/useInvoiceCart";
 import { useOfflineSalesSync } from "../hooks/useOfflineSalesSync";
 import { useShopContext } from "../hooks/useShopContext";
 import { axiosErrorMessage } from "../lib/errors";
+import { inputClass, labelClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { listUnits } from "../lib/api/units";
 import { createSaleInvoice, type CreateSaleInvoiceInput } from "../lib/api/invoices";
 import { getParty, getTopCustomers, type Party } from "../lib/api/parties";
-import { getProduct } from "../lib/api/products";
+import { getProduct, type Product } from "../lib/api/products";
+import { listActiveRateLocksForParty } from "../lib/api/rateLocks";
+import { listProjects } from "../lib/api/projects";
 import { isNetworkError, queueSale } from "../lib/offlineSalesQueue";
 
 export type RepeatOrderState = {
@@ -42,6 +45,25 @@ export function SaleInvoicePage() {
 
   const { cart, addProduct, updateItem, removeItem, clear, subtotal } = useInvoiceCart(units, "salePrice");
   const [party, setParty] = useState<Party | null>(null);
+  const { data: activeRateLocks } = useQuery({
+    queryKey: ["active-rate-locks", party?.id],
+    queryFn: () => listActiveRateLocksForParty(party!.id),
+    enabled: !!party,
+  });
+
+  function addProductRespectingRateLock(product: Product) {
+    const lock = activeRateLocks?.find((l) => l.productId === product.id);
+    addProduct(product, lock ? { unitPrice: Number(lock.lockedPrice) } : undefined);
+  }
+
+  const [projectId, setProjectId] = useState("");
+  const { data: partyProjects } = useQuery({
+    queryKey: ["party-projects", party?.id],
+    queryFn: () => listProjects({ partyId: party!.id }),
+    enabled: !!party,
+  });
+  const activeProjects = (partyProjects ?? []).filter((p) => p.status === "active");
+
   const [repeatOrderLoading, setRepeatOrderLoading] = useState(false);
   const repeatOrderHandled = useRef(false);
 
@@ -82,6 +104,7 @@ export function SaleInvoicePage() {
   function resetFormAfterSubmit() {
     clear();
     setParty(null);
+    setProjectId("");
     setDiscount(0);
     setAmountReceived(0);
     setPaymentMethod("cash");
@@ -138,6 +161,7 @@ export function SaleInvoicePage() {
       branchId: shop.branchId,
       warehouseId: shop.warehouseId,
       partyId: party?.id ?? null,
+      projectId: projectId || null,
       discount: discount || undefined,
       overrideCreditLimit: overrideCreditLimit || undefined,
       payment: party && amountReceived > 0 ? { method: paymentMethod, amount: amountReceived } : undefined,
@@ -239,12 +263,29 @@ export function SaleInvoicePage() {
               type="customer"
               placeholder="Walk-in customer (search to bill on account)…"
               selected={party}
-              onSelect={setParty}
+              onSelect={(p) => {
+                setParty(p);
+                setProjectId("");
+              }}
               onClear={() => {
                 setParty(null);
+                setProjectId("");
                 setAmountReceived(0);
               }}
             />
+            {party && activeProjects.length > 0 && (
+              <div className="mt-3">
+                <label className={labelClass}>Link to Project (optional)</label>
+                <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className={inputClass}>
+                  <option value="">— None —</option>
+                  {activeProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </section>
 
           <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
@@ -252,7 +293,13 @@ export function SaleInvoicePage() {
               <PackagePlus size={16} className="text-gray-400" />
               Items
             </h2>
-            <ProductPicker onSelect={addProduct} />
+            {activeRateLocks && activeRateLocks.length > 0 && (
+              <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                🔒 {activeRateLocks.length} rate-locked price{activeRateLocks.length === 1 ? "" : "s"} active for this
+                customer — applied automatically when added.
+              </div>
+            )}
+            <ProductPicker onSelect={addProductRespectingRateLock} />
             <div className="mt-3">
               <CartTable cart={cart} onUpdate={updateItem} onRemove={removeItem} />
             </div>

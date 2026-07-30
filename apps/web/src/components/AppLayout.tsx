@@ -4,10 +4,12 @@ import { useTranslation } from "react-i18next";
 import {
   BarChart3,
   BookText,
+  Building2,
   Calculator,
   ClipboardCheck,
   FileText,
   HardHat,
+  Landmark,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -43,6 +45,7 @@ const navGroups = [
       { to: "/invoices", key: "invoices", icon: Receipt },
       { to: "/quotations", key: "quotations", icon: FileText },
       { to: "/estimator", key: "estimator", icon: Calculator },
+      { to: "/projects", key: "projects", icon: Building2 },
     ],
   },
   {
@@ -61,6 +64,7 @@ const navGroups = [
       { to: "/expenses", key: "expenses", icon: ReceiptText },
       { to: "/employees", key: "employees", icon: HardHat },
       { to: "/closing", key: "closing", icon: ClipboardCheck },
+      { to: "/cheques", key: "cheques", icon: Landmark },
     ],
   },
   {

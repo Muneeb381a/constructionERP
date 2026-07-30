@@ -5,6 +5,7 @@ export const createSaleInvoiceSchema = z.object({
   branchId: z.string().uuid(),
   warehouseId: z.string().uuid(),
   partyId: z.string().uuid().nullable().optional(),
+  projectId: z.string().uuid().nullable().optional(),
   discount: z.coerce.number().nonnegative().optional(),
   overrideCreditLimit: z.boolean().optional(),
   payment: z

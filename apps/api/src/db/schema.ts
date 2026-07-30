@@ -1,6 +1,6 @@
 import {
   pgTable, serial, varchar, text, integer, numeric, timestamp, date,
-  boolean, pgEnum, uuid, uniqueIndex, index
+  boolean, pgEnum, uuid, uniqueIndex, index, jsonb
 } from "drizzle-orm/pg-core";
 
 // ── Enums ─────────────────────────────────────────────
@@ -15,6 +15,7 @@ export const quotationStatusEnum = pgEnum("quotation_status", ["draft", "sent", 
 export const employmentTypeEnum = pgEnum("employment_type", ["daily_wage", "monthly"]);
 export const attendanceStatusEnum = pgEnum("attendance_status", ["present", "half_day", "absent", "leave"]);
 export const deliveryStatusEnum = pgEnum("delivery_status", ["not_applicable", "pending", "delivered"]);
+export const projectStatusEnum = pgEnum("project_status", ["active", "completed", "on_hold"]);
 
 // ── Tenancy ───────────────────────────────────────────
 export const tenants = pgTable("tenants", {
@@ -179,6 +180,7 @@ export const invoices = pgTable("invoices", {
   partyId: uuid("party_id").references(() => parties.id),
   userId: uuid("user_id").references(() => users.id),
   originalInvoiceId: uuid("original_invoice_id"), // set on returns, points to the invoice being returned against
+  projectId: uuid("project_id").references(() => projects.id), // optional — ties this sale to a site's running material total
   subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull(),
   discount: numeric("discount", { precision: 14, scale: 2 }).default("0"),
   totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull(),
@@ -196,6 +198,25 @@ export const invoices = pgTable("invoices", {
   idempotencyIdx: uniqueIndex("invoices_idempotency_idx").on(t.idempotencyKey),
   partyDateIdx: index("invoices_party_date_idx").on(t.partyId, t.createdAt),
 }));
+
+// A construction site spanning many separate sales over weeks/months (foundation today,
+// walls next month, slab after that) — grouping them lets the shop see cumulative material
+// supplied against the original estimate, instead of each sale standing alone.
+export const projects = pgTable("projects", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  branchId: uuid("branch_id").references(() => branches.id).notNull(),
+  name: varchar("name", { length: 160 }).notNull(),
+  partyId: uuid("party_id").references(() => parties.id),
+  address: text("address"),
+  status: projectStatusEnum("status").notNull().default("active"),
+  // snapshot of the Material Estimator's linked lines at project creation time:
+  // { productId, productName, targetQuantity, unitName }[] — the "plan" actual sales are measured against
+  estimateSnapshot: jsonb("estimate_snapshot"),
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
 
 export const invoiceItems = pgTable("invoice_items", {
   id: serial("id").primaryKey(),
@@ -247,6 +268,17 @@ export const ledgerEntries = pgTable("ledger_entries", {
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   sourceType: varchar("source_type", { length: 30 }).notNull(), // invoice, payment, opening_balance, adjustment
   sourceId: uuid("source_id").notNull(),
+  // True insertion order for the hash chain — createdAt alone isn't enough because two
+  // entries posted in the same transaction (e.g. a sale's invoice debit + payment credit)
+  // can land in the same millisecond, and Postgres doesn't guarantee a stable re-sort on
+  // ties. This column is DB-assigned and strictly increasing per insert, so it's used
+  // instead of createdAt for both writing and verifying the chain.
+  chainSeq: serial("chain_seq").notNull(),
+  // Hash chain: entryHash = sha256(prevHash + this row's fields). Any row edited in place
+  // (outside postLedgerEntry, e.g. a direct DB update) breaks the chain from that point on —
+  // see ledger.service.ts verifyLedgerIntegrity(). Null on legacy rows written before this existed.
+  prevHash: varchar("prev_hash", { length: 64 }),
+  entryHash: varchar("entry_hash", { length: 64 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => ({
   partyDateIdx: index("ledger_party_date_idx").on(t.partyId, t.createdAt),
@@ -278,6 +310,23 @@ export const cheques = pgTable("cheques", {
   dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
   status: chequeStatusEnum("status").notNull().default("pending"),
 });
+
+// Freezes a product's price for a specific customer for a time window — common for regular
+// contractors when cement/steel rates are climbing and the shop wants to honor an old quote.
+export const rateLocks = pgTable("rate_locks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  partyId: uuid("party_id").references(() => parties.id).notNull(),
+  productId: uuid("product_id").references(() => products.id).notNull(),
+  lockedPrice: numeric("locked_price", { precision: 14, scale: 2 }).notNull(),
+  validFrom: timestamp("valid_from", { withTimezone: true }).notNull(),
+  validUntil: timestamp("valid_until", { withTimezone: true }).notNull(),
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  partyProductIdx: index("rate_locks_party_product_idx").on(t.partyId, t.productId),
+}));
 
 export const cashBook = pgTable("cash_book", {
   id: serial("id").primaryKey(),

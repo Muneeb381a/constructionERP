@@ -28,6 +28,15 @@ export async function billsForParty(req: Request, res: Response) {
   res.json(result);
 }
 
+export async function chequeRegister(req: Request, res: Response) {
+  const { status, dueBefore } = req.query;
+  const result = await paymentsService.listAllCheques(req.auth!.tenantId, {
+    status: status === "pending" || status === "cleared" || status === "bounced" ? status : undefined,
+    dueBefore: typeof dueBefore === "string" ? new Date(dueBefore) : undefined,
+  });
+  res.json(result);
+}
+
 export async function updateChequeStatus(req: Request, res: Response) {
   const chequeId = parseId(req.params.chequeId as string, "chequeId");
   const input = updateChequeStatusSchema.parse(req.body);

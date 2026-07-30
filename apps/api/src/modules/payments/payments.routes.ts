@@ -8,6 +8,7 @@ export const paymentsRoutes = Router();
 paymentsRoutes.use(authenticate);
 
 paymentsRoutes.post("/", paymentsController.create);
+paymentsRoutes.get("/cheques", requireRole("owner", "manager", "accountant"), paymentsController.chequeRegister);
 paymentsRoutes.patch(
   "/cheques/:chequeId/status",
   requireRole("owner", "manager", "accountant"),

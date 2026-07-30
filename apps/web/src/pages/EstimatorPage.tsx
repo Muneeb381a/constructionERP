@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Calculator, Download, MessageCircle, PackagePlus, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, Calculator, Download, HardHat, MessageCircle, PackagePlus, X } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { inputClass, labelClass } from "../lib/formStyles";
@@ -8,6 +9,7 @@ import { formatCurrency } from "../lib/format";
 import { axiosErrorMessage } from "../lib/errors";
 import { buildMaterialEstimateMessage, buildWhatsAppLink, buildWhatsAppShareLink } from "../lib/whatsapp";
 import { downloadEstimateSlip } from "../lib/api/estimator";
+import { listUnits, type Unit } from "../lib/api/units";
 import type { Product } from "../lib/api/products";
 import type { Party } from "../lib/api/parties";
 import {
@@ -20,6 +22,13 @@ import {
 export type EstimateQuotationState = {
   estimate: {
     items: { productId: string; unitId: number; quantity: number }[];
+  };
+};
+
+export type ProjectEstimateState = {
+  projectEstimate: {
+    partyId: string | null;
+    lines: { productId: string; productName: string; targetQuantity: number; unitName: string }[];
   };
 };
 
@@ -264,6 +273,7 @@ function AssignSection({
   customer: Party | null;
 }) {
   const navigate = useNavigate();
+  const { data: units } = useQuery({ queryKey: ["units"], queryFn: listUnits });
   const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
   const [downloading, setDownloading] = useState(false);
   const [slipError, setSlipError] = useState<string | null>(null);
@@ -298,6 +308,21 @@ function AssignSection({
       },
     };
     navigate("/quotations/new", { state });
+  }
+
+  function startProject() {
+    const state: ProjectEstimateState = {
+      projectEstimate: {
+        partyId: customer?.id ?? null,
+        lines: Object.values(assignments).map((a) => ({
+          productId: a.product.id,
+          productName: a.product.name,
+          targetQuantity: a.quantity,
+          unitName: units?.find((u: Unit) => u.id === a.product.baseUnitId)?.name ?? "unit",
+        })),
+      },
+    };
+    navigate("/projects/new", { state });
   }
 
   async function downloadSlip() {
@@ -396,6 +421,14 @@ function AssignSection({
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           Add {assignedCount || ""} Item{assignedCount === 1 ? "" : "s"} to Quotation
+        </button>
+        <button
+          onClick={startProject}
+          disabled={assignedCount === 0}
+          className="flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <HardHat size={14} />
+          Start a Project
         </button>
         <button
           onClick={downloadSlip}

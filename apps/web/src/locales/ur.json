@@ -16,6 +16,7 @@
     "invoices": "انوائسز",
     "quotations": "کوٹیشنز",
     "estimator": "میٹریل تخمینہ",
+    "projects": "پراجیکٹس",
     "products": "مصنوعات",
     "customers": "کسٹمرز",
     "stock": "اسٹاک",
@@ -24,6 +25,7 @@
     "expenses": "اخراجات",
     "employees": "ملازمین",
     "closing": "روزانہ اختتامی رپورٹ",
+    "cheques": "چیک رجسٹر",
     "settings": "سیٹنگز",
     "logout": "لاگ آؤٹ"
   },

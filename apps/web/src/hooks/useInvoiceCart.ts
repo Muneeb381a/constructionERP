@@ -25,7 +25,7 @@ export function useInvoiceCart(units: Unit[] | undefined, priceField: "salePrice
   const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  async function addProduct(product: Product, overrides?: { quantity?: number; unitId?: number }) {
+  async function addProduct(product: Product, overrides?: { quantity?: number; unitId?: number; unitPrice?: number }) {
     const unitId = overrides?.unitId ?? product.baseUnitId;
     if (cart.some((item) => item.productId === product.id && item.unitId === unitId)) return;
 
@@ -52,7 +52,7 @@ export function useInvoiceCart(units: Unit[] | undefined, priceField: "salePrice
         unitOptions,
         unitId,
         quantity: overrides?.quantity ?? 1,
-        unitPrice: Number(product[priceField]),
+        unitPrice: overrides?.unitPrice ?? Number(product[priceField]),
       },
     ]);
   }

@@ -24,6 +24,8 @@ import { expensesRoutes } from "./modules/expenses/expenses.routes.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { closingRoutes } from "./modules/closing/closing.routes.js";
 import { estimatorRoutes } from "./modules/estimator/estimator.routes.js";
+import { rateLocksRoutes } from "./modules/rateLocks/rateLocks.routes.js";
+import { projectsRoutes } from "./modules/projects/projects.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 export const app = express();
@@ -56,6 +58,8 @@ app.use("/api/expenses", expensesRoutes);
 app.use("/api/audit-log", auditRoutes);
 app.use("/api/closing", closingRoutes);
 app.use("/api/estimator", estimatorRoutes);
+app.use("/api/rate-locks", rateLocksRoutes);
+app.use("/api/projects", projectsRoutes);
 app.use("/api/public", publicPartyRoutes);
 
 app.use(errorHandler);

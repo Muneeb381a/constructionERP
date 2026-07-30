@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, ne } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { cheques, invoices, payments } from "../../db/schema.js";
+import { cheques, invoices, parties, payments } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { lockParty } from "../parties/parties.service.js";
 import { postLedgerEntry } from "../ledger/ledger.service.js";
@@ -154,6 +154,53 @@ export async function listBillsForParty(tenantId: string, partyId: string): Prom
       invoice.status === "void" ? "void" : balanceDue <= 0.01 ? "paid" : paidTotal > 0 ? "partial" : "unpaid";
     return { invoice, returnsTotal, netAmount, paidTotal, balanceDue, status };
   });
+}
+
+export type ChequeRegisterFilter = {
+  status?: "pending" | "cleared" | "bounced";
+  dueBefore?: Date;
+};
+
+/**
+ * Tenant-wide register across every party — a cheque received FROM a customer and a cheque
+ * WE issued to a supplier are the same row shape (payments/cheques don't distinguish
+ * direction; partyId's own type tells you which), so one list covers both.
+ */
+export async function listAllCheques(tenantId: string, filter: ChequeRegisterFilter = {}) {
+  const conditions = [eq(payments.tenantId, tenantId)];
+  if (filter.status) conditions.push(eq(cheques.status, filter.status));
+  if (filter.dueBefore) conditions.push(lte(cheques.dueDate, filter.dueBefore));
+
+  const rows = await db
+    .select({
+      id: cheques.id,
+      chequeNo: cheques.chequeNo,
+      bankName: cheques.bankName,
+      dueDate: cheques.dueDate,
+      status: cheques.status,
+      amount: payments.amount,
+      partyId: payments.partyId,
+      partyName: parties.name,
+      partyType: parties.type,
+      createdAt: payments.createdAt,
+    })
+    .from(cheques)
+    .innerJoin(payments, eq(payments.id, cheques.paymentId))
+    .innerJoin(parties, eq(parties.id, payments.partyId))
+    .where(and(...conditions))
+    .orderBy(asc(cheques.dueDate));
+
+  return rows;
+}
+
+export async function hasBouncedCheque(tenantId: string, partyId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: cheques.id })
+    .from(cheques)
+    .innerJoin(payments, eq(payments.id, cheques.paymentId))
+    .where(and(eq(payments.tenantId, tenantId), eq(payments.partyId, partyId), eq(cheques.status, "bounced")))
+    .limit(1);
+  return !!row;
 }
 
 export async function updateChequeStatus(tenantId: string, chequeId: string, status: "cleared" | "bounced") {
