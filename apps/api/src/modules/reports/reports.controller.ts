@@ -20,6 +20,12 @@ export async function profitSummary(req: Request, res: Response) {
   res.json(result);
 }
 
+export async function profitByProduct(req: Request, res: Response) {
+  const { dateFrom, dateTo } = reportsQuerySchema.parse(req.query);
+  const result = await reportsService.getProfitByProduct(req.auth!.tenantId, dateFrom, dateTo);
+  res.json(result);
+}
+
 export async function agingReport(req: Request, res: Response) {
   const { partyType } = agingReportQuerySchema.parse(req.query);
   const result = await reportsService.getAgingReport(req.auth!.tenantId, partyType);

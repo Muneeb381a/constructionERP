@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Calculator, PackagePlus, X } from "lucide-react";
+import { AlertTriangle, Calculator, Download, MessageCircle, PackagePlus, X } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
+import { PartyPicker } from "../components/PartyPicker";
 import { inputClass, labelClass } from "../lib/formStyles";
+import { formatCurrency } from "../lib/format";
+import { axiosErrorMessage } from "../lib/errors";
+import { buildMaterialEstimateMessage, buildWhatsAppLink, buildWhatsAppShareLink } from "../lib/whatsapp";
+import { downloadEstimateSlip } from "../lib/api/estimator";
 import type { Product } from "../lib/api/products";
+import type { Party } from "../lib/api/parties";
 import {
   estimateBrickWall,
   estimatePcc,
@@ -54,7 +60,7 @@ function NumberField({
   );
 }
 
-function WallForm() {
+function WallForm({ customer }: { customer: Party | null }) {
   const [lengthFt, setLengthFt] = useState(10);
   const [heightFt, setHeightFt] = useState(10);
   const [thicknessIn, setThicknessIn] = useState(9);
@@ -89,12 +95,17 @@ function WallForm() {
         </div>
       </div>
       <ResultCard lines={lines} note={`Wall volume: ${result.wallVolumeCft} cft`} />
-      <AssignSection lines={lines} />
+      <AssignSection
+        lines={lines}
+        title="Brick Wall"
+        dimensionsNote={`${lengthFt}ft x ${heightFt}ft, ${thicknessIn}" thick`}
+        customer={customer}
+      />
     </>
   );
 }
 
-function SlabForm() {
+function SlabForm({ customer }: { customer: Party | null }) {
   const [lengthFt, setLengthFt] = useState(20);
   const [widthFt, setWidthFt] = useState(15);
   const [thicknessIn, setThicknessIn] = useState(5);
@@ -129,12 +140,17 @@ function SlabForm() {
         <NumberField label="Steel (kg per sqft)" value={steelKgPerSqft} onChange={setSteelKgPerSqft} step={0.05} />
       </div>
       <ResultCard lines={lines} note={`Area: ${result.areaSqft} sqft · Volume: ${result.volumeCft} cft`} />
-      <AssignSection lines={lines} />
+      <AssignSection
+        lines={lines}
+        title="RCC Slab / Chhat"
+        dimensionsNote={`${lengthFt}ft x ${widthFt}ft, ${thicknessIn}" thick`}
+        customer={customer}
+      />
     </>
   );
 }
 
-function PccForm() {
+function PccForm({ customer }: { customer: Party | null }) {
   const [lengthFt, setLengthFt] = useState(20);
   const [widthFt, setWidthFt] = useState(2);
   const [thicknessIn, setThicknessIn] = useState(4);
@@ -163,12 +179,17 @@ function PccForm() {
         </div>
       </div>
       <ResultCard lines={lines} note={`Volume: ${result.volumeCft} cft`} />
-      <AssignSection lines={lines} />
+      <AssignSection
+        lines={lines}
+        title="Foundation (PCC)"
+        dimensionsNote={`${lengthFt}ft x ${widthFt}ft, ${thicknessIn}" thick`}
+        customer={customer}
+      />
     </>
   );
 }
 
-function PlasterForm() {
+function PlasterForm({ customer }: { customer: Party | null }) {
   const [lengthFt, setLengthFt] = useState(10);
   const [heightFt, setHeightFt] = useState(10);
   const [thicknessIn, setThicknessIn] = useState(0.5);
@@ -201,7 +222,12 @@ function PlasterForm() {
         </div>
       </div>
       <ResultCard lines={lines} note={`Area: ${result.areaSqft} sqft`} />
-      <AssignSection lines={lines} />
+      <AssignSection
+        lines={lines}
+        title="Plaster"
+        dimensionsNote={`${lengthFt}ft x ${heightFt}ft, ${thicknessIn}" thick`}
+        customer={customer}
+      />
     </>
   );
 }
@@ -226,15 +252,28 @@ function ResultCard({ lines, note }: { lines: MaterialLine[]; note: string }) {
 
 type Assignment = { product: Product; quantity: number };
 
-function AssignSection({ lines }: { lines: MaterialLine[] }) {
+function AssignSection({
+  lines,
+  title,
+  dimensionsNote,
+  customer,
+}: {
+  lines: MaterialLine[];
+  title: string;
+  dimensionsNote: string;
+  customer: Party | null;
+}) {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
+  const [downloading, setDownloading] = useState(false);
+  const [slipError, setSlipError] = useState<string | null>(null);
 
   useEffect(() => {
     setAssignments({});
   }, [lines.map((l) => l.key).join(",")]);
 
   const assignedCount = Object.keys(assignments).length;
+  const totalCost = Object.values(assignments).reduce((sum, a) => sum + a.quantity * Number(a.product.salePrice), 0);
 
   function assign(key: string, product: Product, qty: number) {
     setAssignments((prev) => ({ ...prev, [key]: { product, quantity: qty } }));
@@ -259,6 +298,41 @@ function AssignSection({ lines }: { lines: MaterialLine[] }) {
       },
     };
     navigate("/quotations/new", { state });
+  }
+
+  async function downloadSlip() {
+    setSlipError(null);
+    setDownloading(true);
+    try {
+      const blob = await downloadEstimateSlip({
+        title,
+        dimensionsNote,
+        customerName: customer?.name,
+        lines: lines.map((line) => {
+          const a = assignments[line.key];
+          return {
+            label: line.label,
+            qty: line.qty,
+            unit: line.unit,
+            productName: a?.product.name,
+            unitPrice: a ? Number(a.product.salePrice) : undefined,
+          };
+        }),
+      });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setSlipError(axiosErrorMessage(err) ?? "Failed to generate estimate slip");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  function sendWhatsApp() {
+    const message = buildMaterialEstimateMessage(title, dimensionsNote, lines, totalCost > 0 ? totalCost : null, customer?.name);
+    const link = customer?.phone ? buildWhatsAppLink(customer.phone, message) : buildWhatsAppShareLink(message);
+    window.open(link, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -306,19 +380,46 @@ function AssignSection({ lines }: { lines: MaterialLine[] }) {
           );
         })}
       </div>
-      <button
-        onClick={addToQuotation}
-        disabled={assignedCount === 0}
-        className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        Add {assignedCount || ""} Item{assignedCount === 1 ? "" : "s"} to Quotation
-      </button>
+
+      {assignedCount > 0 && (
+        <p className="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+          Estimated cost (linked items only): {formatCurrency(totalCost)}
+        </p>
+      )}
+
+      {slipError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{slipError}</p>}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          onClick={addToQuotation}
+          disabled={assignedCount === 0}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          Add {assignedCount || ""} Item{assignedCount === 1 ? "" : "s"} to Quotation
+        </button>
+        <button
+          onClick={downloadSlip}
+          disabled={downloading}
+          className="flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <Download size={14} />
+          {downloading ? "Preparing…" : "Print Slip (PDF)"}
+        </button>
+        <button
+          onClick={sendWhatsApp}
+          className="flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          <MessageCircle size={14} />
+          Send via WhatsApp
+        </button>
+      </div>
     </div>
   );
 }
 
 export function EstimatorPage() {
   const [tab, setTab] = useState<Tab>("wall");
+  const [customer, setCustomer] = useState<Party | null>(null);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -341,6 +442,17 @@ export function EstimatorPage() {
         </span>
       </div>
 
+      <div>
+        <label className={labelClass}>Customer (optional — names the printed/WhatsApp slip)</label>
+        <PartyPicker
+          type="customer"
+          placeholder="Search or add a customer…"
+          selected={customer}
+          onSelect={setCustomer}
+          onClear={() => setCustomer(null)}
+        />
+      </div>
+
       <div className="flex flex-wrap gap-1.5 border-b border-gray-200 dark:border-gray-800">
         {tabs.map((tItem) => (
           <button
@@ -358,10 +470,10 @@ export function EstimatorPage() {
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        {tab === "wall" && <WallForm key="wall" />}
-        {tab === "slab" && <SlabForm key="slab" />}
-        {tab === "pcc" && <PccForm key="pcc" />}
-        {tab === "plaster" && <PlasterForm key="plaster" />}
+        {tab === "wall" && <WallForm key="wall" customer={customer} />}
+        {tab === "slab" && <SlabForm key="slab" customer={customer} />}
+        {tab === "pcc" && <PccForm key="pcc" customer={customer} />}
+        {tab === "plaster" && <PlasterForm key="plaster" customer={customer} />}
       </div>
     </div>
   );

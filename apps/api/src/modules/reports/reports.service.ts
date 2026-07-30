@@ -126,6 +126,66 @@ export async function getProfitSummary(tenantId: string, dateFrom: Date, dateTo:
   return { revenue, estimatedCost, estimatedProfit: revenue - estimatedCost };
 }
 
+export type ProductProfitRow = {
+  productId: string;
+  name: string;
+  revenue: number;
+  estimatedCost: number;
+  estimatedProfit: number;
+  marginPercent: number;
+};
+
+/**
+ * Same cost-estimation caveat as getProfitSummary (current purchasePrice stands in for
+ * historical cost), broken down per product so an owner can see which lines are actually
+ * carrying the shop rather than just moving volume at thin margins.
+ */
+export async function getProfitByProduct(tenantId: string, dateFrom: Date, dateTo: Date): Promise<ProductProfitRow[]> {
+  const rows = await db
+    .select({
+      productId: products.id,
+      name: products.name,
+      revenue: sql<string>`coalesce(sum(${invoiceItems.lineTotal}), 0)`,
+      estimatedCost: sql<string>`coalesce(sum(${invoiceItems.quantity} * coalesce(${productUnitConversions.toBaseUnitFactor}, 1) * ${products.purchasePrice}), 0)`,
+    })
+    .from(invoiceItems)
+    .innerJoin(invoices, eq(invoices.id, invoiceItems.invoiceId))
+    .innerJoin(products, eq(products.id, invoiceItems.productId))
+    .leftJoin(
+      productUnitConversions,
+      and(
+        eq(productUnitConversions.productId, invoiceItems.productId),
+        eq(productUnitConversions.fromUnitId, invoiceItems.unitId),
+      ),
+    )
+    .where(
+      and(
+        eq(invoices.tenantId, tenantId),
+        eq(invoices.type, "sale"),
+        ne(invoices.status, "void"),
+        gte(invoices.createdAt, dateFrom),
+        lte(invoices.createdAt, dateTo),
+      ),
+    )
+    .groupBy(products.id, products.name);
+
+  return rows
+    .map((r) => {
+      const revenue = Number(r.revenue);
+      const estimatedCost = Number(r.estimatedCost);
+      const estimatedProfit = revenue - estimatedCost;
+      return {
+        productId: r.productId,
+        name: r.name,
+        revenue,
+        estimatedCost,
+        estimatedProfit,
+        marginPercent: revenue > 0 ? (estimatedProfit / revenue) * 100 : 0,
+      };
+    })
+    .sort((a, b) => b.estimatedProfit - a.estimatedProfit);
+}
+
 export type AgingRow = {
   partyId: string;
   partyName: string;

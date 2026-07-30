@@ -9,7 +9,7 @@ import { PartyPicker } from "../components/PartyPicker";
 import { inputClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
-import { getAgingReport, getProfitSummary, getReorderSuggestions, getSalesTrend, getTopProducts } from "../lib/api/reports";
+import { getAgingReport, getProfitByProduct, getProfitSummary, getReorderSuggestions, getSalesTrend, getTopProducts } from "../lib/api/reports";
 import type { Party } from "../lib/api/parties";
 import type { ReorderState } from "./PurchaseInvoicePage";
 
@@ -267,6 +267,12 @@ export function ReportsPage() {
     enabled: canView,
   });
 
+  const { data: profitByProduct } = useQuery({
+    queryKey: ["reports-profit-by-product", dateFrom, dateTo],
+    queryFn: () => getProfitByProduct(dateFrom, dateTo),
+    enabled: canView,
+  });
+
   if (!canView) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">Reports are available to owners, managers, and accountants only.</p>;
   }
@@ -353,6 +359,48 @@ export function ReportsPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* profit by product */}
+      <div>
+        <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Profit Margin by Product</h2>
+        <p className="-mt-1 mb-2 text-xs text-gray-400 dark:text-gray-500">
+          Uses each product's current purchase price as a stand-in for historical cost — a rough margin read.
+        </p>
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          {!profitByProduct || profitByProduct.length === 0 ? (
+            <p className="p-4 text-sm text-gray-500 dark:text-gray-400">No sales in this date range.</p>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Product</th>
+                  <th className="px-4 py-2 text-right font-medium">Revenue</th>
+                  <th className="px-4 py-2 text-right font-medium">Est. Cost</th>
+                  <th className="px-4 py-2 text-right font-medium">Est. Profit</th>
+                  <th className="px-4 py-2 text-right font-medium">Margin</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {profitByProduct.map((p) => (
+                  <tr key={p.productId}>
+                    <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{p.name}</td>
+                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{formatCurrency(p.revenue)}</td>
+                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400">{formatCurrency(p.estimatedCost)}</td>
+                    <td
+                      className={`px-4 py-2 text-right font-medium ${
+                        p.estimatedProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {formatCurrency(p.estimatedProfit)}
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-500 dark:text-gray-400">{p.marginPercent.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>

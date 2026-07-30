@@ -59,6 +59,20 @@ export function buildWhatsAppShareLink(message: string): string {
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
+/** @param totalCost pass null when no material line was linked to a priced product yet */
+export function buildMaterialEstimateMessage(
+  title: string,
+  dimensionsNote: string,
+  lines: { label: string; qty: number; unit: string }[],
+  totalCost: number | null,
+  customerName?: string,
+): string {
+  const greeting = customerName ? `Assalam-o-Alaikum ${customerName}` : "Assalam-o-Alaikum";
+  const itemLines = lines.map((l) => `• ${l.label}: ${l.qty} ${l.unit}`).join("\n");
+  const costLine = totalCost != null ? `\n\nAndazan kharcha (estimated cost): ${formatCurrency(totalCost)}` : "";
+  return `${greeting}, aap ki "${title}" (${dimensionsNote}) ke liye material ka andaza yeh hai:\n\n${itemLines}${costLine}\n\nYeh sirf ek andaza hai — exact quantity ke liye contractor/engineer se confirm karein. Shukriya!`;
+}
+
 export function buildLowStockAlertMessage(items: { name: string; currentStock: number; minStock: number }[]): string {
   const lines = items.map((i) => `• ${i.name}: ${i.currentStock} (min ${i.minStock})`);
   return `Assalam-o-Alaikum, in ${items.length} items ka stock reorder point se neeche hai:\n\n${lines.join("\n")}\n\nBarah-e-karam jald reorder karein.`;

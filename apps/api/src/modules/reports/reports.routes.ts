@@ -11,5 +11,6 @@ reportsRoutes.use(requireRole("owner", "manager", "accountant"));
 reportsRoutes.get("/sales-trend", reportsController.salesTrend);
 reportsRoutes.get("/top-products", reportsController.topProducts);
 reportsRoutes.get("/profit-summary", reportsController.profitSummary);
+reportsRoutes.get("/profit-by-product", reportsController.profitByProduct);
 reportsRoutes.get("/aging", reportsController.agingReport);
 reportsRoutes.get("/reorder-suggestions", reportsController.reorderSuggestions);

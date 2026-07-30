@@ -36,6 +36,20 @@ export async function getProfitSummary(dateFrom: string, dateTo: string) {
   return res.data;
 }
 
+export type ProductProfitRow = {
+  productId: string;
+  name: string;
+  revenue: number;
+  estimatedCost: number;
+  estimatedProfit: number;
+  marginPercent: number;
+};
+
+export async function getProfitByProduct(dateFrom: string, dateTo: string) {
+  const res = await apiClient.get<ProductProfitRow[]>("/reports/profit-by-product", { params: { dateFrom, dateTo } });
+  return res.data;
+}
+
 export type AgingRow = {
   partyId: string;
   partyName: string;
