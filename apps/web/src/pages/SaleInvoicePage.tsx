@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CloudOff, RefreshCw, User, PackagePlus, Receipt, Banknote } from "lucide-react";
+import { CloudOff, FileDown, RefreshCw, Truck, User, PackagePlus, Receipt, Banknote } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
@@ -13,11 +13,12 @@ import { inputClass, labelClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { listUnits } from "../lib/api/units";
-import { createSaleInvoice, type CreateSaleInvoiceInput } from "../lib/api/invoices";
+import { assignDelivery, createSaleInvoice, fetchDeliveryChallanPdf, type CreateSaleInvoiceInput } from "../lib/api/invoices";
 import { getParty, getTopCustomers, type Party } from "../lib/api/parties";
 import { getProduct, type Product } from "../lib/api/products";
 import { listActiveRateLocksForParty } from "../lib/api/rateLocks";
 import { listProjects } from "../lib/api/projects";
+import { listEmployees } from "../lib/api/employees";
 import { isNetworkError, queueSale } from "../lib/offlineSalesQueue";
 
 export type RepeatOrderState = {
@@ -64,6 +65,11 @@ export function SaleInvoicePage() {
   });
   const activeProjects = (partyProjects ?? []).filter((p) => p.status === "active");
 
+  const [deliveryEmployeeId, setDeliveryEmployeeId] = useState("");
+  const { data: employees } = useQuery({ queryKey: ["employees", ""], queryFn: () => listEmployees() });
+  const [completedInvoice, setCompletedInvoice] = useState<{ id: string; hasDelivery: boolean } | null>(null);
+  const [downloadingChallan, setDownloadingChallan] = useState(false);
+
   const [repeatOrderLoading, setRepeatOrderLoading] = useState(false);
   const repeatOrderHandled = useRef(false);
 
@@ -105,11 +111,27 @@ export function SaleInvoicePage() {
     clear();
     setParty(null);
     setProjectId("");
+    setDeliveryEmployeeId("");
     setDiscount(0);
     setAmountReceived(0);
     setPaymentMethod("cash");
     setSubmitError(null);
     setIdempotencyKey(crypto.randomUUID());
+  }
+
+  async function handleDownloadChallan() {
+    if (!completedInvoice) return;
+    setDownloadingChallan(true);
+    try {
+      const blob = await fetchDeliveryChallanPdf(completedInvoice.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      // best-effort — the invoice's own detail page always has this as a fallback
+    } finally {
+      setDownloadingChallan(false);
+    }
   }
 
   async function queueOffline(input: CreateSaleInvoiceInput) {
@@ -127,14 +149,29 @@ export function SaleInvoicePage() {
 
   const mutation = useMutation({
     mutationFn: (input: CreateSaleInvoiceInput) => createSaleInvoice(input),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       const due = round2(Number(result.invoice.totalAmount) - Number(result.payment?.amount ?? 0));
       const paymentNote = result.payment
         ? due > 0.01
           ? ` — ${formatCurrency(Number(result.payment.amount))} received, ${formatCurrency(due)} still due.`
           : ` — paid in full.`
         : "";
-      setSuccessMessage(`Sale invoice ${result.invoice.invoiceNo} created.${paymentNote}`);
+
+      let hasDelivery = false;
+      if (deliveryEmployeeId) {
+        try {
+          await assignDelivery(result.invoice.id, deliveryEmployeeId);
+          hasDelivery = true;
+        } catch {
+          // the sale itself already succeeded — don't lose that over a delivery-assign hiccup,
+          // the invoice's own detail page can still assign it afterward
+        }
+      }
+
+      setCompletedInvoice({ id: result.invoice.id, hasDelivery });
+      setSuccessMessage(
+        `Sale invoice ${result.invoice.invoiceNo} created.${paymentNote}${deliveryEmployeeId && !hasDelivery ? " (delivery assignment failed — assign it from the invoice page)" : ""}`,
+      );
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       resetFormAfterSubmit();
     },
@@ -227,11 +264,29 @@ export function SaleInvoicePage() {
       )}
 
       {successMessage && (
-        <div className="flex items-center justify-between rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
           <span>{successMessage}</span>
-          <button onClick={() => setSuccessMessage(null)} className="font-medium hover:underline">
-            Dismiss
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            {completedInvoice?.hasDelivery && (
+              <button
+                onClick={handleDownloadChallan}
+                disabled={downloadingChallan}
+                className="flex items-center gap-1 font-medium hover:underline disabled:opacity-50"
+              >
+                <FileDown size={14} />
+                {downloadingChallan ? "Preparing…" : "Print Delivery Challan"}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setSuccessMessage(null);
+                setCompletedInvoice(null);
+              }}
+              className="font-medium hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
 
@@ -303,6 +358,25 @@ export function SaleInvoicePage() {
             <div className="mt-3">
               <CartTable cart={cart} onUpdate={updateItem} onRemove={removeItem} />
             </div>
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <Truck size={16} className="text-gray-400" />
+              Delivery (optional)
+            </h2>
+            <select value={deliveryEmployeeId} onChange={(e) => setDeliveryEmployeeId(e.target.value)} className={inputClass}>
+              <option value="">Customer picking up — no delivery</option>
+              {employees?.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name}
+                  {emp.designation ? ` — ${emp.designation}` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+              Pick who's taking this material out — you'll get a "Print Delivery Challan" button right after saving.
+            </p>
           </section>
         </div>
 
