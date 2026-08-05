@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, RotateCcw, Tags, Trash2, X } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -8,7 +8,14 @@ import { RateHistoryChart } from "../components/RateHistoryChart";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
-import { listCategories } from "../lib/api/categories";
+import {
+  createCategory,
+  deleteCategory,
+  listCategories,
+  updateCategory,
+  type Category,
+  type CategoryInput,
+} from "../lib/api/categories";
 import { listUnits } from "../lib/api/units";
 import {
   bulkUpdatePrices,
@@ -187,6 +194,240 @@ function ProductForm({
         </button>
       </div>
     </form>
+  );
+}
+
+const emptyNewCategory: CategoryInput = { name: "", nameUrdu: "", parentId: null };
+
+function CategoriesManager() {
+  const queryClient = useQueryClient();
+  const { data: categories, isLoading } = useQuery({ queryKey: ["categories"], queryFn: listCategories });
+
+  const [newCategory, setNewCategory] = useState<CategoryInput>(emptyNewCategory);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<CategoryInput>(emptyNewCategory);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+  }
+
+  const createMutation = useMutation({
+    mutationFn: (input: CategoryInput) => createCategory(input),
+    onSuccess: () => {
+      invalidate();
+      setNewCategory(emptyNewCategory);
+      setAddError(null);
+    },
+    onError: (err) => setAddError(axiosErrorMessage(err) ?? "Failed to add category"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: number; input: CategoryInput }) => updateCategory(id, input),
+    onSuccess: () => {
+      invalidate();
+      setEditingId(null);
+      setEditError(null);
+    },
+    onError: (err) => setEditError(axiosErrorMessage(err) ?? "Failed to save changes"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteCategory(id),
+    onSuccess: () => {
+      invalidate();
+      setDeletingId(null);
+      setDeleteError(null);
+    },
+    onError: (err) => setDeleteError(axiosErrorMessage(err) ?? "Failed to delete category"),
+  });
+
+  function startEdit(c: Category) {
+    setEditingId(c.id);
+    setEditDraft({ name: c.name, nameUrdu: c.nameUrdu ?? "", parentId: c.parentId });
+    setEditError(null);
+  }
+
+  function parentName(parentId: number | null) {
+    if (parentId == null) return null;
+    return categories?.find((c) => c.id === parentId)?.name ?? null;
+  }
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!newCategory.name.trim()) return;
+          createMutation.mutate({
+            name: newCategory.name.trim(),
+            nameUrdu: newCategory.nameUrdu?.trim() || null,
+            parentId: newCategory.parentId,
+          });
+        }}
+        className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>Name</label>
+            <input
+              required
+              placeholder="e.g. Plumbing"
+              value={newCategory.name}
+              onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Name (Urdu)</label>
+            <input
+              dir="rtl"
+              value={newCategory.nameUrdu ?? ""}
+              onChange={(e) => setNewCategory({ ...newCategory, nameUrdu: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <label className={labelClass}>Parent Category (optional — makes this a subcategory)</label>
+            <select
+              value={newCategory.parentId ?? ""}
+              onChange={(e) => setNewCategory({ ...newCategory, parentId: e.target.value ? Number(e.target.value) : null })}
+              className={inputClass}
+            >
+              <option value="">— None —</option>
+              {categories?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={createMutation.isPending || !newCategory.name.trim()}
+            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Plus size={15} />
+            Add
+          </button>
+        </div>
+        {addError && <p className="text-sm text-red-600 dark:text-red-400">{addError}</p>}
+      </form>
+
+      {isLoading ? (
+        <Loader />
+      ) : !categories || categories.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">No categories yet — add your first one above.</p>
+      ) : (
+        <ul className="max-h-80 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+          {categories.map((c) => (
+            <li key={c.id} className="px-3 py-2.5">
+              {editingId === c.id ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      value={editDraft.name}
+                      onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
+                      className={inputClass}
+                    />
+                    <input
+                      dir="rtl"
+                      value={editDraft.nameUrdu ?? ""}
+                      onChange={(e) => setEditDraft({ ...editDraft, nameUrdu: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
+                  {editError && <p className="text-sm text-red-600 dark:text-red-400">{editError}</p>}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="flex items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      <X size={13} />
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() =>
+                        updateMutation.mutate({
+                          id: c.id,
+                          input: { name: editDraft.name.trim(), nameUrdu: editDraft.nameUrdu?.trim() || null },
+                        })
+                      }
+                      disabled={updateMutation.isPending || !editDraft.name.trim()}
+                      className="flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      <Check size={13} />
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : deletingId === c.id ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Delete <span className="font-medium">{c.name}</span>? This can't be undone.
+                  </p>
+                  {deleteError && <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setDeletingId(null);
+                        setDeleteError(null);
+                      }}
+                      className="rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => deleteMutation.mutate(c.id)}
+                      disabled={deleteMutation.isPending}
+                      className="rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {c.name}
+                      {c.nameUrdu && <span className="ml-1.5 text-xs text-gray-400 dark:text-gray-500">({c.nameUrdu})</span>}
+                    </p>
+                    {parentName(c.parentId) && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500">under {parentName(c.parentId)}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={() => startEdit(c)}
+                      aria-label={`Edit ${c.name}`}
+                      className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDeletingId(c.id);
+                        setDeleteError(null);
+                      }}
+                      aria-label={`Delete ${c.name}`}
+                      className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -385,6 +626,7 @@ export function ProductsPage() {
     | { mode: "rate-history"; product: Product }
     | { mode: "bulk-price" }
     | { mode: "deactivate"; product: Product }
+    | { mode: "categories" }
   >(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -435,6 +677,13 @@ export function ProductsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Products</h1>
         <div className="flex gap-2">
+          <button
+            onClick={() => setModal({ mode: "categories" })}
+            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Tags size={15} />
+            Categories
+          </button>
           <button
             onClick={() => setModal({ mode: "bulk-price" })}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -583,6 +832,11 @@ export function ProductsPage() {
       {modal?.mode === "bulk-price" && (
         <Modal title="Bulk Price Update" onClose={() => setModal(null)}>
           <BulkPriceUpdateForm onDone={() => setModal(null)} />
+        </Modal>
+      )}
+      {modal?.mode === "categories" && (
+        <Modal title="Manage Categories" onClose={() => setModal(null)} size="lg">
+          <CategoriesManager />
         </Modal>
       )}
       {modal?.mode === "deactivate" && (
