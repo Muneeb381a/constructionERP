@@ -15,6 +15,28 @@ body {
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Running-bond brick coursing, drawn purely in CSS (no image asset) — used behind the
+   branding panel on the auth pages to keep the construction identity visible without
+   competing with the form. Each "course" is offset by half a brick, like a real wall. */
+.brick-pattern {
+  --brick-w: 64px;
+  --brick-h: 28px;
+  --mortar: rgba(255, 255, 255, 0.08);
+  background-color: transparent;
+  background-image:
+    linear-gradient(var(--mortar) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, var(--mortar) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, var(--mortar) 1.5px, transparent 1.5px);
+  background-size:
+    var(--brick-w) var(--brick-h),
+    var(--brick-w) var(--brick-h),
+    var(--brick-w) var(--brick-h);
+  background-position:
+    0 0,
+    0 0,
+    calc(var(--brick-w) / 2) calc(var(--brick-h) / 2);
+}
+
 /* Thermal receipt printing — only #printable-receipt renders, sized to the paper width
    set inline via --print-width (58mm or 80mm), everything else on the page is hidden. */
 @media print {
