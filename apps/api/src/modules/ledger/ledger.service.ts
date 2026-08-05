@@ -185,6 +185,18 @@ export async function verifyLedgerIntegrity(tenantId: string): Promise<LedgerInt
   return { valid: brokenAt === null, brokenAt, checkedCount, legacyUncheckedCount, totalEntries: entries.length };
 }
 
+/** Used by manual-entry endpoints (opening balance, adjustment) to dedupe a client-supplied
+ * idempotency key used as sourceId — those endpoints have no dedicated table of their own
+ * to check against, but every ledger entry already carries (sourceType, sourceId). */
+export async function findLedgerEntryBySource(tenantId: string, sourceType: string, sourceId: string) {
+  const [entry] = await db
+    .select()
+    .from(ledgerEntries)
+    .where(and(eq(ledgerEntries.tenantId, tenantId), eq(ledgerEntries.sourceType, sourceType), eq(ledgerEntries.sourceId, sourceId)))
+    .limit(1);
+  return entry ?? null;
+}
+
 export function listLedgerForParty(tenantId: string, partyId: string) {
   return db
     .select()

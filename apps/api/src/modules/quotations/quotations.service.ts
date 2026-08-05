@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { branches, parties, products, quotationItems, quotations, units } from "../../db/schema.js";
@@ -164,8 +163,13 @@ export async function convertToInvoice(
     throw new HttpError(409, `Cannot convert a ${quotation.status} quotation`);
   }
 
+  // Deliberately quotationId itself, not a fresh randomUUID() — the invoice insert and this
+  // status update below aren't atomic (createSaleInvoice runs its own transaction). If the
+  // status update never runs (crash, timeout) and the caller retries, a fresh random key
+  // would create a SECOND real invoice; reusing quotationId makes createSaleInvoice's own
+  // idempotency check recognize the retry and return the already-created invoice instead.
   const result = await createSaleInvoice(ctx, {
-    idempotencyKey: randomUUID(),
+    idempotencyKey: quotationId,
     branchId: quotation.branchId,
     warehouseId: input.warehouseId,
     partyId: quotation.partyId,

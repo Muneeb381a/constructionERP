@@ -19,6 +19,7 @@ import { getProduct, type Product } from "../lib/api/products";
 import { listActiveRateLocksForParty } from "../lib/api/rateLocks";
 import { listProjects } from "../lib/api/projects";
 import { listEmployees } from "../lib/api/employees";
+import { openInvoicePdf } from "../lib/printInvoice";
 import { isNetworkError, queueSale } from "../lib/offlineSalesQueue";
 
 export type RepeatOrderState = {
@@ -69,6 +70,7 @@ export function SaleInvoicePage() {
   const { data: employees } = useQuery({ queryKey: ["employees", ""], queryFn: () => listEmployees() });
   const [completedInvoice, setCompletedInvoice] = useState<{ id: string; hasDelivery: boolean } | null>(null);
   const [downloadingChallan, setDownloadingChallan] = useState(false);
+  const [printBlocked, setPrintBlocked] = useState(false);
 
   const [repeatOrderLoading, setRepeatOrderLoading] = useState(false);
   const repeatOrderHandled = useRef(false);
@@ -174,6 +176,9 @@ export function SaleInvoicePage() {
       );
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       resetFormAfterSubmit();
+
+      const opened = await openInvoicePdf(result.invoice.id);
+      setPrintBlocked(!opened);
     },
     onError: (err, input) => {
       // no server response at all — genuinely offline (or the connection dropped mid-request)
@@ -265,8 +270,20 @@ export function SaleInvoicePage() {
 
       {successMessage && (
         <div className="flex items-center justify-between gap-3 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
-          <span>{successMessage}</span>
+          <span>
+            {successMessage}
+            {printBlocked && " Your browser blocked the automatic print tab — use the button below."}
+          </span>
           <div className="flex shrink-0 items-center gap-3">
+            <button
+              onClick={async () => {
+                if (completedInvoice) setPrintBlocked(!(await openInvoicePdf(completedInvoice.id)));
+              }}
+              className="flex items-center gap-1 font-medium hover:underline"
+            >
+              <FileDown size={14} />
+              Print Invoice
+            </button>
             {completedInvoice?.hasDelivery && (
               <button
                 onClick={handleDownloadChallan}
@@ -399,7 +416,7 @@ export function SaleInvoicePage() {
                   step="0.01"
                   min="0"
                   value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value))}
+                  onChange={(e) => setDiscount(Math.min(subtotal, Math.max(0, Number(e.target.value))))}
                   className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>

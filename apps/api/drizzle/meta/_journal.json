@@ -113,6 +113,27 @@
       "when": 1785410612845,
       "tag": "0015_curvy_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785866642048,
+      "tag": "0016_aromatic_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785867016048,
+      "tag": "0017_bumpy_power_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785909611146,
+      "tag": "0018_amused_champions",
+      "breakpoints": true
     }
   ]
 }

@@ -134,7 +134,12 @@ export function ReturnInvoicePage() {
                         min="0"
                         max={item.quantity}
                         value={returnQty[item.id] ?? 0}
-                        onChange={(e) => setReturnQty((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setReturnQty((prev) => ({
+                            ...prev,
+                            [item.id]: Math.min(Number(item.quantity), Math.max(0, Number(e.target.value))),
+                          }))
+                        }
                         className="w-28 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                       />
                     </td>

@@ -48,7 +48,7 @@ export function ClosingPage() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const { data: preview, isLoading } = useQuery({
+  const { data: preview, isLoading, isError } = useQuery({
     queryKey: ["closing-today"],
     queryFn: getTodayClosingPreview,
     enabled: canView,
@@ -69,7 +69,8 @@ export function ClosingPage() {
     return <p className="text-sm text-gray-500 dark:text-gray-400">Day-End Closing is available to owners and managers only.</p>;
   }
 
-  if (isLoading || !preview) return <Loader full />;
+  if (isLoading) return <Loader full />;
+  if (isError || !preview) return <p className="text-sm text-red-600 dark:text-red-400">Failed to load today's figures. Try refreshing.</p>;
 
   const closed = preview.alreadyClosed ? preview.existingClosing : null;
 

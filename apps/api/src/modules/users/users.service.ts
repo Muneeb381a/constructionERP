@@ -68,7 +68,18 @@ export async function createUser(tenantId: string, input: CreateUserInput) {
   return user;
 }
 
-export async function updateUser(tenantId: string, userId: string, input: UpdateUserInput) {
+export async function updateUser(tenantId: string, userId: string, callerRole: string, input: UpdateUserInput) {
+  // A manager granting themselves/another manager "owner" is already blocked at the
+  // controller (input.role check). This closes the other half: a manager editing ANY
+  // field — isActive in particular — on an existing owner account, which would let a
+  // manager silently lock the real owner out. Only another owner may touch an owner row.
+  if (callerRole !== "owner") {
+    const [target] = await db.select({ role: users.role }).from(users).where(and(eq(users.id, userId), eq(users.tenantId, tenantId))).limit(1);
+    if (target?.role === "owner") {
+      throw new HttpError(403, "Only an owner can modify another owner's account");
+    }
+  }
+
   const [updated] = await db
     .update(users)
     .set(input)

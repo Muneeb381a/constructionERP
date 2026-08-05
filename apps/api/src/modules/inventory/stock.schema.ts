@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const adjustStockSchema = z.object({
+  idempotencyKey: z.string().uuid(),
   productId: z.string().uuid(),
   warehouseId: z.string().uuid(),
   quantityChange: z.coerce.number().refine((n) => n !== 0, "quantityChange must not be zero"),

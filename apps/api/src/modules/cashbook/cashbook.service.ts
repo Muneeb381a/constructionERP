@@ -5,6 +5,13 @@ import { HttpError } from "../../middleware/error.middleware.js";
 import type { CreateCashBookEntryInput, ListCashBookQuery } from "./cashbook.schema.js";
 
 export async function createEntry(tenantId: string, input: CreateCashBookEntryInput) {
+  const [existing] = await db
+    .select()
+    .from(cashBook)
+    .where(and(eq(cashBook.tenantId, tenantId), eq(cashBook.idempotencyKey, input.idempotencyKey)))
+    .limit(1);
+  if (existing) return existing;
+
   const [branch] = await db
     .select({ id: branches.id })
     .from(branches)
@@ -20,6 +27,7 @@ export async function createEntry(tenantId: string, input: CreateCashBookEntryIn
       direction: input.direction,
       amount: input.amount.toString(),
       description: input.description ?? null,
+      idempotencyKey: input.idempotencyKey,
     })
     .returning();
   return entry;

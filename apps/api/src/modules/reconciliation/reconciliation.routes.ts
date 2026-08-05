@@ -11,3 +11,4 @@ reconciliationRoutes.post("/reconcile-all", reconciliationController.triggerAll)
 
 reconciliationRoutes.use(authenticate);
 reconciliationRoutes.post("/reconcile", requireRole("owner"), reconciliationController.trigger);
+reconciliationRoutes.get("/reconcile/last-run", requireRole("owner", "manager"), reconciliationController.lastRun);

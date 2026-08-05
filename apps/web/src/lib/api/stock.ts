@@ -47,7 +47,7 @@ export async function listStockMovements(productId: string) {
   return res.data;
 }
 
-export async function adjustStock(input: { productId: string; warehouseId: string; quantityChange: number }) {
+export async function adjustStock(input: { idempotencyKey: string; productId: string; warehouseId: string; quantityChange: number }) {
   const res = await apiClient.post("/stock/adjust", input);
   return res.data;
 }

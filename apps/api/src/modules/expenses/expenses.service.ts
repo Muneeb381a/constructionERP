@@ -15,6 +15,13 @@ export type CreateExpenseContext = {
 export async function createExpense(ctx: CreateExpenseContext, input: CreateExpenseInput) {
   const { tenantId, userId } = ctx;
 
+  const [existing] = await db
+    .select()
+    .from(expenses)
+    .where(and(eq(expenses.tenantId, tenantId), eq(expenses.idempotencyKey, input.idempotencyKey)))
+    .limit(1);
+  if (existing) return existing;
+
   const [branch] = await db
     .select({ id: branches.id })
     .from(branches)
@@ -46,6 +53,7 @@ export async function createExpense(ctx: CreateExpenseContext, input: CreateExpe
         expenseDate: input.expenseDate ?? karachiDateString(),
         cashBookEntryId: cashBookEntry.id,
         createdBy: userId,
+        idempotencyKey: input.idempotencyKey,
       })
       .returning();
 

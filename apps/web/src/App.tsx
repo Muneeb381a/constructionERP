@@ -33,6 +33,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { PublicBalancePage } from "./pages/PublicBalancePage";
 import { PublicQuotationPage } from "./pages/PublicQuotationPage";
 import { PublicOrderStatusPage } from "./pages/PublicOrderStatusPage";
+import { PlatformAdminApp } from "./platformAdmin/PlatformAdminApp";
 
 function RedirectToCustomer() {
   const { id } = useParams<{ id: string }>();
@@ -47,6 +48,10 @@ export default function App() {
       <Route path="/balance/:token" element={<PublicBalancePage />} />
       <Route path="/quote/:token" element={<PublicQuotationPage />} />
       <Route path="/track/:token" element={<PublicOrderStatusPage />} />
+
+      {/* SaaS operator console — its own auth stack, own layout, never nested under
+          ProtectedRoute/AppLayout above. See src/platformAdmin/. */}
+      <Route path="/platform-admin/*" element={<PlatformAdminApp />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>

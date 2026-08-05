@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const createExpenseSchema = z.object({
+  idempotencyKey: z.string().uuid(),
   branchId: z.string().uuid(),
   category: z.string().min(1).max(60),
   amount: z.coerce.number().positive(),

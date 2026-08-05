@@ -324,10 +324,13 @@ function LedgerEntryForm({
   const [direction, setDirection] = useState<"debit" | "credit">("debit");
   const [amount, setAmount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const mutation = useMutation({
     mutationFn: () =>
-      kind === "opening-balance" ? postOpeningBalance(partyId, { direction, amount }) : postLedgerAdjustment(partyId, { direction, amount }),
+      kind === "opening-balance"
+        ? postOpeningBalance(partyId, { idempotencyKey, direction, amount })
+        : postLedgerAdjustment(partyId, { idempotencyKey, direction, amount }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["party", partyId] });
       queryClient.invalidateQueries({ queryKey: ["party-ledger", partyId] });
@@ -482,7 +485,7 @@ export function PartyDetailPage() {
   const [chequeError, setChequeError] = useState<string | null>(null);
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
 
-  const { data: party, isLoading: partyLoading } = useQuery({
+  const { data: party, isLoading: partyLoading, isError: partyError } = useQuery({
     queryKey: ["party", id],
     queryFn: () => getParty(id!),
     enabled: !!id,
@@ -572,7 +575,8 @@ export function PartyDetailPage() {
     onError: (err) => setShareLinkError(axiosErrorMessage(err) ?? "Failed to create link"),
   });
 
-  if (partyLoading || !party) return <Loader full />;
+  if (partyLoading) return <Loader full />;
+  if (partyError || !party) return <p className="text-sm text-red-600 dark:text-red-400">Failed to load this customer. Try refreshing.</p>;
 
   const balance = Number(party.cachedBalance);
   const isCustomer = party.type === "customer";

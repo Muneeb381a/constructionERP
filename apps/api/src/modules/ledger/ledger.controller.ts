@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import { randomUUID } from "node:crypto";
 import { db } from "../../db/index.js";
 import * as ledgerService from "./ledger.service.js";
 import * as partiesService from "../parties/parties.service.js";
@@ -36,6 +35,9 @@ export async function openingBalance(req: Request, res: Response) {
 
   await partiesService.getParty(tenantId, partyId); // 404s if not in this tenant
 
+  const existing = await ledgerService.findLedgerEntryBySource(tenantId, "opening_balance", input.idempotencyKey);
+  if (existing) return res.status(200).json(existing);
+
   const entry = await db.transaction((tx) =>
     ledgerService.postLedgerEntry(tx, {
       tenantId,
@@ -43,7 +45,7 @@ export async function openingBalance(req: Request, res: Response) {
       direction: input.direction,
       amount: input.amount,
       sourceType: "opening_balance",
-      sourceId: randomUUID(),
+      sourceId: input.idempotencyKey,
     }),
   );
 
@@ -62,6 +64,9 @@ export async function adjustment(req: Request, res: Response) {
 
   await partiesService.getParty(tenantId, partyId);
 
+  const existing = await ledgerService.findLedgerEntryBySource(tenantId, "adjustment", input.idempotencyKey);
+  if (existing) return res.status(200).json(existing);
+
   const entry = await db.transaction((tx) =>
     ledgerService.postLedgerEntry(tx, {
       tenantId,
@@ -69,7 +74,7 @@ export async function adjustment(req: Request, res: Response) {
       direction: input.direction,
       amount: input.amount,
       sourceType: "adjustment",
-      sourceId: randomUUID(),
+      sourceId: input.idempotencyKey,
     }),
   );
 

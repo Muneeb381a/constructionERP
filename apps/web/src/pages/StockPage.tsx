@@ -15,9 +15,10 @@ function AdjustStockForm({ row, onDone }: { row: StockByWarehouseRow; onDone: ()
   const queryClient = useQueryClient();
   const [quantityChange, setQuantityChange] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const mutation = useMutation({
-    mutationFn: () => adjustStock({ productId: row.productId, warehouseId: row.warehouseId, quantityChange }),
+    mutationFn: () => adjustStock({ idempotencyKey, productId: row.productId, warehouseId: row.warehouseId, quantityChange }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stock-by-warehouse"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
@@ -274,7 +275,7 @@ export function StockPage() {
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: listWarehouses });
   const hasMultipleWarehouses = (warehouses?.length ?? 0) > 1;
 
-  const { data: stock, isLoading } = useQuery({
+  const { data: stock, isLoading, isError } = useQuery({
     queryKey: ["stock-by-warehouse", shop.warehouseId],
     queryFn: () => listStockByWarehouse(shop.warehouseId),
     enabled: !!shop.warehouseId,
@@ -330,6 +331,8 @@ export function StockPage() {
 
       {isLoading ? (
         <Loader />
+      ) : isError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load stock. Try refreshing.</p>
       ) : view === "cards" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredStock?.map((row) => (

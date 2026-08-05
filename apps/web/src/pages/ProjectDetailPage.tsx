@@ -25,7 +25,7 @@ export function ProjectDetailPage() {
   const canManage = role === "owner" || role === "manager";
   const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ["project", id], queryFn: () => getProject(id!), enabled: !!id });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["project", id], queryFn: () => getProject(id!), enabled: !!id });
 
   const statusMutation = useMutation({
     mutationFn: (status: Project["status"]) => updateProjectStatus(id!, status),
@@ -33,7 +33,8 @@ export function ProjectDetailPage() {
     onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to update status"),
   });
 
-  if (isLoading || !data) return <Loader full />;
+  if (isLoading) return <Loader full />;
+  if (isError || !data) return <p className="text-sm text-red-600 dark:text-red-400">Failed to load this project. Try refreshing.</p>;
 
   const { project, invoices, progress } = data;
 

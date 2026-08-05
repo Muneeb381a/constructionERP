@@ -15,9 +15,10 @@ function AddEntryForm({ branchId, onDone }: { branchId: string; onDone: () => vo
   const [amount, setAmount] = useState(0);
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const mutation = useMutation({
-    mutationFn: () => createCashBookEntry({ branchId, direction, amount, description: description || null }),
+    mutationFn: () => createCashBookEntry({ idempotencyKey, branchId, direction, amount, description: description || null }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cash-book"] });
       queryClient.invalidateQueries({ queryKey: ["cash-book-balance"] });
@@ -79,7 +80,7 @@ export function CashBookPage() {
     enabled: canView && !!shop.branchId,
   });
 
-  const { data: entries, isLoading } = useQuery({
+  const { data: entries, isLoading, isError } = useQuery({
     queryKey: ["cash-book", shop.branchId, page],
     queryFn: () => listCashBookEntries({ branchId: shop.branchId, page }),
     enabled: canView && !!shop.branchId,
@@ -113,6 +114,8 @@ export function CashBookPage() {
 
       {isLoading ? (
         <Loader />
+      ) : isError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load cash book entries. Try refreshing.</p>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">

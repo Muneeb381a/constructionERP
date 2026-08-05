@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { auditLog, parties } from "../../db/schema.js";
+import { auditLog, parties, reconciliationRuns } from "../../db/schema.js";
 import { recalculateBalance } from "../ledger/ledger.service.js";
 
 const DRIFT_TOLERANCE = 0.005; // half a paisa — accounts for numeric rounding, not real drift
@@ -21,7 +21,7 @@ export type BalanceMismatch = {
  * (a bug, a manual DB edit, a botched migration) — those get logged to audit_log so an
  * owner can investigate, even though the value itself is already self-healed by this run.
  */
-export async function reconcileAllBalances(tenantId?: string): Promise<BalanceMismatch[]> {
+export async function reconcileAllBalances(tenantId?: string, triggeredBy: "cron" | "manual" = "manual"): Promise<BalanceMismatch[]> {
   const allParties = tenantId
     ? await db.select().from(parties).where(eq(parties.tenantId, tenantId))
     : await db.select().from(parties);
@@ -50,5 +50,30 @@ export async function reconcileAllBalances(tenantId?: string): Promise<BalanceMi
     );
   }
 
+  // record this pass even when everything matched — otherwise a clean run leaves no trace
+  // at all, and "last checked" can never be shown on a quiet day
+  const tenantsTouched = tenantId ? [tenantId] : [...new Set(allParties.map((p) => p.tenantId))];
+  if (tenantsTouched.length > 0) {
+    const mismatchCountByTenant = new Map<string, number>();
+    for (const m of mismatches) mismatchCountByTenant.set(m.tenantId, (mismatchCountByTenant.get(m.tenantId) ?? 0) + 1);
+    await db.insert(reconciliationRuns).values(
+      tenantsTouched.map((tid) => ({
+        tenantId: tid,
+        mismatchCount: mismatchCountByTenant.get(tid) ?? 0,
+        triggeredBy,
+      })),
+    );
+  }
+
   return mismatches;
+}
+
+export async function getLastReconciliationRun(tenantId: string) {
+  const [run] = await db
+    .select()
+    .from(reconciliationRuns)
+    .where(eq(reconciliationRuns.tenantId, tenantId))
+    .orderBy(desc(reconciliationRuns.createdAt))
+    .limit(1);
+  return run ?? null;
 }

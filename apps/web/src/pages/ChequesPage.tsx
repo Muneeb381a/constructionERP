@@ -50,7 +50,7 @@ export function ChequesPage() {
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [error, setError] = useState<string | null>(null);
 
-  const { data: cheques, isLoading } = useQuery({
+  const { data: cheques, isLoading, isError } = useQuery({
     queryKey: ["cheque-register", filter],
     queryFn: () => listChequeRegister(filter === "all" ? {} : { status: filter }),
     enabled: canManage,
@@ -109,6 +109,8 @@ export function ChequesPage() {
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
+        ) : isError ? (
+          <p className="p-4 text-sm text-red-600 dark:text-red-400">Failed to load cheques. Try refreshing.</p>
         ) : !cheques || cheques.length === 0 ? (
           <p className="p-4 text-sm text-gray-500 dark:text-gray-400">No cheques on record.</p>
         ) : (

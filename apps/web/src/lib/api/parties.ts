@@ -31,6 +31,8 @@ export type PartyInput = {
   cnic?: string | null;
   address?: string | null;
   creditLimit?: number;
+  /** Create-only — ignored by the update endpoint. "Pichla baqaya" as of when this party was entered. */
+  openingBalance?: { direction: "debit" | "credit"; amount: number } | null;
 };
 
 export async function listParties(

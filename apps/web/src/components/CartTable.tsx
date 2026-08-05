@@ -46,7 +46,7 @@ export function CartTable({
                   step="0.001"
                   min="0.001"
                   value={item.quantity}
-                  onChange={(e) => onUpdate(item.key, { quantity: Number(e.target.value) })}
+                  onChange={(e) => onUpdate(item.key, { quantity: Math.max(0, Number(e.target.value)) })}
                   className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 />
               </td>
@@ -56,7 +56,7 @@ export function CartTable({
                   step="0.01"
                   min="0"
                   value={item.unitPrice}
-                  onChange={(e) => onUpdate(item.key, { unitPrice: Number(e.target.value) })}
+                  onChange={(e) => onUpdate(item.key, { unitPrice: Math.max(0, Number(e.target.value)) })}
                   className="w-28 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 />
               </td>

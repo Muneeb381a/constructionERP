@@ -17,10 +17,13 @@ employeesRoutes.delete("/:id", requireRole("owner", "manager"), employeesControl
 employeesRoutes.get("/:employeeId/attendance", employeesController.listAttendance);
 employeesRoutes.post("/:employeeId/attendance", requireRole("owner", "manager"), employeesController.markAttendance);
 
-employeesRoutes.get("/:employeeId/ledger", employeesController.listLedger);
+// Wage/salary/payment history is financial data about what the business owes a specific
+// staff member — same sensitivity as a party's credit limit, not something a cashier should
+// be able to look up about a co-worker.
+employeesRoutes.get("/:employeeId/ledger", requireRole("owner", "manager"), employeesController.listLedger);
 
-employeesRoutes.get("/:employeeId/salary", employeesController.listSalaryPostings);
+employeesRoutes.get("/:employeeId/salary", requireRole("owner", "manager"), employeesController.listSalaryPostings);
 employeesRoutes.post("/:employeeId/salary", requireRole("owner", "manager"), employeesController.postSalary);
 
-employeesRoutes.get("/:employeeId/payments", employeesController.listPayments);
+employeesRoutes.get("/:employeeId/payments", requireRole("owner", "manager"), employeesController.listPayments);
 employeesRoutes.post("/:employeeId/payments", requireRole("owner", "manager"), employeesController.createPayment);

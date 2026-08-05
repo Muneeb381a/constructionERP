@@ -313,7 +313,7 @@ export function EmployeeDetailPage() {
   const canManage = role === "owner" || role === "manager";
   const [modal, setModal] = useState<null | "attendance" | "payment" | "salary">(null);
 
-  const { data: employee, isLoading } = useQuery({
+  const { data: employee, isLoading, isError } = useQuery({
     queryKey: ["employee", id],
     queryFn: () => getEmployee(id!),
     enabled: !!id,
@@ -328,16 +328,17 @@ export function EmployeeDetailPage() {
   const { data: ledger } = useQuery({
     queryKey: ["employee-ledger", id],
     queryFn: () => listEmployeeLedger(id!),
-    enabled: !!id,
+    enabled: !!id && canManage,
   });
 
   const { data: payments } = useQuery({
     queryKey: ["employee-payments", id],
     queryFn: () => listEmployeePayments(id!),
-    enabled: !!id,
+    enabled: !!id && canManage,
   });
 
-  if (isLoading || !employee) return <Loader full />;
+  if (isLoading) return <Loader full />;
+  if (isError || !employee) return <p className="text-sm text-red-600 dark:text-red-400">Failed to load this employee. Try refreshing.</p>;
 
   return (
     <div className="space-y-6">

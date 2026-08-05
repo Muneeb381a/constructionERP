@@ -66,12 +66,17 @@ function PartyForm({
   error: string | null;
 }) {
   const [form, setForm] = useState(initial);
+  const [openingAmount, setOpeningAmount] = useState(0);
+  const [openingDirection, setOpeningDirection] = useState<"debit" | "credit">("debit");
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(form);
+        onSubmit({
+          ...form,
+          openingBalance: !isEdit && openingAmount > 0 ? { direction: openingDirection, amount: openingAmount } : undefined,
+        });
       }}
       className="space-y-5"
     >
@@ -170,10 +175,43 @@ function PartyForm({
               step="0.01"
               min="0"
               value={form.creditLimit}
-              onChange={(e) => setForm({ ...form, creditLimit: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, creditLimit: Math.max(0, Number(e.target.value)) })}
               className={inputClass + " mt-0 pl-9"}
             />
           </FieldWithIcon>
+        </div>
+      )}
+
+      {!isEdit && (
+        <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            Opening Balance <span className="normal-case text-gray-400">(pichla baqaya, optional)</span>
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <FieldWithIcon icon={Wallet}>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={openingAmount || ""}
+                onChange={(e) => setOpeningAmount(Math.max(0, Number(e.target.value)))}
+                className={inputClass + " mt-0 pl-9"}
+              />
+            </FieldWithIcon>
+            <select
+              value={openingDirection}
+              onChange={(e) => setOpeningDirection(e.target.value as "debit" | "credit")}
+              className={inputClass + " mt-0"}
+            >
+              <option value="debit">{form.type === "customer" ? "Customer owes this" : "We owe supplier this"}</option>
+              <option value="credit">{form.type === "customer" ? "We owe customer (advance)" : "Supplier owes us (advance)"}</option>
+            </select>
+          </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Whatever this {form.type} already owed (or was owed) before you started using this system — posted straight
+            to their ledger so their balance and future payments line up from day one.
+          </p>
         </div>
       )}
 
@@ -213,7 +251,7 @@ export function PartiesPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { sendReminder, loadingId: reminderLoadingId } = useSendReminder();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["parties", search, typeFilter],
     queryFn: () => listParties({ search: search || undefined, type: typeFilter || undefined }),
   });
@@ -290,6 +328,8 @@ export function PartiesPage() {
 
       {isLoading ? (
         <Loader />
+      ) : isError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load customers. Try refreshing.</p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <table className="w-full text-left text-sm">

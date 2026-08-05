@@ -158,6 +158,12 @@ function ProductForm({
           />
         </div>
       </div>
+      {(form.salePrice ?? 0) > 0 && (form.purchasePrice ?? 0) > 0 && (form.salePrice ?? 0) < (form.purchasePrice ?? 0) && (
+        <p className="-mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+          Sale Price ({formatCurrency(form.salePrice ?? 0)}) is below Purchase Price ({formatCurrency(form.purchasePrice ?? 0)}) — this product
+          would sell at a loss.
+        </p>
+      )}
       <p className="-mt-2 text-xs text-gray-400 dark:text-gray-500">
         Max Stock sets the "full" level for the stock visuals on the Stock page. Leave blank to auto-estimate from Min Stock.
       </p>

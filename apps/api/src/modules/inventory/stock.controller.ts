@@ -34,6 +34,9 @@ export async function adjust(req: Request, res: Response) {
   const input = adjustStockSchema.parse(req.body);
   const tenantId = req.auth!.tenantId;
 
+  const existing = await stockService.findAdjustmentByIdempotencyKey(tenantId, input.idempotencyKey);
+  if (existing) return res.json(existing);
+
   const updated = await db.transaction((tx) =>
     stockService.adjustStock(tx, {
       tenantId,
@@ -41,6 +44,7 @@ export async function adjust(req: Request, res: Response) {
       warehouseId: input.warehouseId,
       quantityChange: input.quantityChange,
       reason: "adjustment",
+      referenceId: input.idempotencyKey,
     }),
   );
 

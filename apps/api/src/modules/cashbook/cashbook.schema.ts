@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const createCashBookEntrySchema = z.object({
+  idempotencyKey: z.string().uuid(),
   branchId: z.string().uuid(),
   direction: z.enum(["debit", "credit"]), // debit = cash in, credit = cash out
   amount: z.coerce.number().positive(),

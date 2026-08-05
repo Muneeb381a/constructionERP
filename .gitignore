@@ -23,3 +23,4 @@ build/
 # Contains real tenant login credentials (owner/cashier passwords) for local testing —
 # keep it out of version control; regenerate locally from db:seed instead of committing it.
 IMPLEMENTATION_STATUS.md
+Audit.md

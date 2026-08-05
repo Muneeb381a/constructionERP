@@ -16,6 +16,8 @@ export const employmentTypeEnum = pgEnum("employment_type", ["daily_wage", "mont
 export const attendanceStatusEnum = pgEnum("attendance_status", ["present", "half_day", "absent", "leave"]);
 export const deliveryStatusEnum = pgEnum("delivery_status", ["not_applicable", "pending", "delivered"]);
 export const projectStatusEnum = pgEnum("project_status", ["active", "completed", "on_hold"]);
+export const tenantStatusEnum = pgEnum("tenant_status", ["active", "suspended", "closed"]);
+export const platformAdminRoleEnum = pgEnum("platform_admin_role", ["super_admin"]);
 
 // ── Tenancy ───────────────────────────────────────────
 export const tenants = pgTable("tenants", {
@@ -27,6 +29,15 @@ export const tenants = pgTable("tenants", {
   reminderIntervalDays: integer("reminder_interval_days").default(7),
   allowNegativeStock: boolean("allow_negative_stock").default(false),
   defaultCurrency: varchar("default_currency", { length: 10 }).default("PKR"),
+  // Platform-admin controlled lifecycle — "suspended"/"closed" both block login (see
+  // auth.service.ts + authenticate middleware); "closed" never transitions back to active.
+  status: tenantStatusEnum("status").notNull().default("active"),
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  suspendedReason: text("suspended_reason"),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  closedReason: text("closed_reason"),
+  // Null = self-registered via /auth/register. Set = provisioned by a platform admin.
+  createdByPlatformAdminId: uuid("created_by_platform_admin_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -337,8 +348,13 @@ export const cashBook = pgTable("cash_book", {
   direction: ledgerDirectionEnum("direction").notNull(),
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   description: text("description"),
+  // defaultRandom() so a double-submit of the SAME client-issued key replays instead of
+  // duplicating the entry — existing rows each get their own fresh value on migration.
+  idempotencyKey: uuid("idempotency_key").defaultRandom().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+}, (t) => ({
+  idempotencyIdx: uniqueIndex("cash_book_idempotency_idx").on(t.idempotencyKey),
+}));
 
 // One row per day a shop "closes the till" — a snapshot of that day's figures plus what
 // the cashier actually counted, so a shortage/overage on a specific date is on record
@@ -378,21 +394,94 @@ export const expenses = pgTable("expenses", {
   expenseDate: date("expense_date", { mode: "string" }).notNull(), // Asia/Karachi calendar day
   cashBookEntryId: integer("cash_book_entry_id").references(() => cashBook.id),
   createdBy: uuid("created_by").references(() => users.id),
+  idempotencyKey: uuid("idempotency_key").defaultRandom().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => ({
   branchDateIdx: index("expenses_branch_date_idx").on(t.branchId, t.expenseDate),
+  idempotencyIdx: uniqueIndex("expenses_idempotency_idx").on(t.idempotencyKey),
 }));
 
-// Hashed refresh tokens — lets logout/rotation actually revoke access instead of relying on JWT expiry alone
+// Hashed refresh tokens — lets logout/rotation actually revoke access instead of relying on JWT expiry alone.
+// Also doubles as the "device details" record the platform admin sees per tenant: one live
+// row per logged-in device, re-stamped (lastUsedAt) on every rotation.
 export const refreshTokens = pgTable("refresh_tokens", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").references(() => users.id).notNull(),
+  // Denormalized from users.tenantId so "all live devices for tenant X" is one indexed
+  // query instead of a join. Nullable during rollout — see drizzle/0018 migration notes.
+  tenantId: uuid("tenant_id").references(() => tenants.id),
   tokenHash: text("token_hash").notNull(),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => ({
   userIdx: index("refresh_tokens_user_idx").on(t.userId),
+  tenantIdx: index("refresh_tokens_tenant_idx").on(t.tenantId),
+}));
+
+// ── Platform admin (SaaS operator layer, sits above every tenant) ─────
+// Deliberately disjoint from `users`/`refreshTokens` — own identity table, own token
+// table, own audit log — so a bug or bypass in tenant-land can never reach this layer.
+// The only way a row is ever created here is the scripts/create-platform-admin.ts
+// bootstrap script; there is no HTTP route that creates one.
+export const platformAdmins = pgTable("platform_admins", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 120 }).notNull(),
+  email: varchar("email", { length: 160 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  totpSecret: text("totp_secret"),
+  totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),
+  role: platformAdminRoleEnum("role").notNull().default("super_admin"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// One-time backup codes, generated and shown once at bootstrap, for recovering access if
+// the 2FA device is lost. Hashed at rest like a password, never stored in plaintext.
+export const platformAdminRecoveryCodes = pgTable("platform_admin_recovery_codes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  platformAdminId: uuid("platform_admin_id").references(() => platformAdmins.id).notNull(),
+  codeHash: text("code_hash").notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  adminIdx: index("platform_admin_recovery_codes_admin_idx").on(t.platformAdminId),
+}));
+
+export const platformRefreshTokens = pgTable("platform_refresh_tokens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  platformAdminId: uuid("platform_admin_id").references(() => platformAdmins.id).notNull(),
+  tokenHash: text("token_hash").notNull(),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  adminIdx: index("platform_refresh_tokens_admin_idx").on(t.platformAdminId),
+}));
+
+// Append-only by convention (same discipline as ledger_entries) — no update/delete
+// function is ever written for this table. Not tenant-scoped: a platform action isn't
+// "inside" a tenant, it's done *to* one.
+export const platformAuditLog = pgTable("platform_audit_log", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  platformAdminId: uuid("platform_admin_id").references(() => platformAdmins.id).notNull(),
+  action: varchar("action", { length: 50 }).notNull(), // login, tenant_created, tenant_suspended, tenant_reactivated, tenant_closed
+  targetTenantId: uuid("target_tenant_id").references(() => tenants.id),
+  beforeData: text("before_data"), // JSON snapshot — never plaintext secrets
+  afterData: text("after_data"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  idempotencyKey: uuid("idempotency_key"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  targetIdx: index("platform_audit_log_target_idx").on(t.targetTenantId, t.createdAt),
+  adminIdx: index("platform_audit_log_admin_idx").on(t.platformAdminId, t.createdAt),
 }));
 
 // Atomic per-(tenant, branch, document type, year) invoice numbering — locked with
@@ -488,6 +577,19 @@ export const employeeSalaryPostings = pgTable("employee_salary_postings", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (t) => ({
   employeeMonthIdx: uniqueIndex("employee_salary_posting_emp_month_idx").on(t.employeeId, t.month),
+}));
+
+// One row per reconciliation pass (nightly cron or manual "Run Now") — even a clean run
+// with zero mismatches is recorded, so "last checked: 5 min ago, all clear" is showable
+// without digging through audit_log (which only ever gets a row when something's wrong).
+export const reconciliationRuns = pgTable("reconciliation_runs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+  mismatchCount: integer("mismatch_count").notNull(),
+  triggeredBy: varchar("triggered_by", { length: 20 }).notNull(), // "cron" | "manual"
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  tenantDateIdx: index("reconciliation_runs_tenant_date_idx").on(t.tenantId, t.createdAt),
 }));
 
 // ── Audit ─────────────────────────────────────────────

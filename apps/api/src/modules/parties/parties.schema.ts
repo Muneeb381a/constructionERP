@@ -7,6 +7,16 @@ export const createPartySchema = z.object({
   cnic: z.string().max(20).nullable().optional(),
   address: z.string().nullable().optional(),
   creditLimit: z.coerce.number().nonnegative().optional(),
+  // "Pichla baqaya" — what this party already owed (or was owed) before they were entered
+  // into the system. Posted as a real ledger_entries row at creation time, same as every
+  // other balance change — never written directly to cachedBalance.
+  openingBalance: z
+    .object({
+      direction: z.enum(["debit", "credit"]),
+      amount: z.coerce.number().positive(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const updatePartySchema = z.object({

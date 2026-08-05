@@ -19,6 +19,7 @@ function todayIso() {
 function AddExpenseForm({ branchId, onDone }: { branchId: string; onDone: () => void }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<ExpenseInput>({
+    idempotencyKey: crypto.randomUUID(),
     branchId,
     category: "",
     amount: 0,
@@ -109,7 +110,7 @@ export function ExpensesPage() {
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const { data: expenses, isLoading } = useQuery({
+  const { data: expenses, isLoading, isError } = useQuery({
     queryKey: ["expenses", shop.branchId, page],
     queryFn: () => listExpenses({ branchId: shop.branchId, page }),
     enabled: !!shop.branchId,
@@ -146,6 +147,8 @@ export function ExpensesPage() {
 
       {isLoading ? (
         <Loader />
+      ) : isError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load expenses. Try refreshing.</p>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">

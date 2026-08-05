@@ -62,7 +62,7 @@ function NumberField({
         min="0"
         step={step}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
         className={inputClass}
       />
     </div>
@@ -385,12 +385,13 @@ function AssignSection({
                     step="0.01"
                     min="0"
                     value={assignment.quantity}
-                    onChange={(e) => assign(line.key, assignment.product, Number(e.target.value))}
+                    onChange={(e) => assign(line.key, assignment.product, Math.max(0, Number(e.target.value)))}
                     className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                   />
                   <button
                     type="button"
                     onClick={() => unassign(line.key)}
+                    aria-label={`Remove linked product for ${line.label}`}
                     className="shrink-0 rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
                   >
                     <X size={14} />

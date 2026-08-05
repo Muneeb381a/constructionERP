@@ -4,8 +4,13 @@ import { HttpError } from "../../middleware/error.middleware.js";
 import * as reconciliationService from "./reconciliation.service.js";
 
 export async function trigger(req: Request, res: Response) {
-  const mismatches = await reconciliationService.reconcileAllBalances(req.auth!.tenantId);
+  const mismatches = await reconciliationService.reconcileAllBalances(req.auth!.tenantId, "manual");
   res.json({ mismatchesFound: mismatches.length, mismatches });
+}
+
+export async function lastRun(req: Request, res: Response) {
+  const run = await reconciliationService.getLastReconciliationRun(req.auth!.tenantId);
+  res.json(run);
 }
 
 /**
@@ -18,6 +23,6 @@ export async function triggerAll(req: Request, res: Response) {
   const header = req.headers.authorization;
   if (header !== `Bearer ${env.cronSecret}`) throw new HttpError(401, "Invalid or missing cron secret");
 
-  const mismatches = await reconciliationService.reconcileAllBalances();
+  const mismatches = await reconciliationService.reconcileAllBalances(undefined, "cron");
   res.json({ mismatchesFound: mismatches.length, mismatches });
 }

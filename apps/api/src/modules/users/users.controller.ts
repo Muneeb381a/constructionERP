@@ -24,7 +24,7 @@ export async function update(req: Request, res: Response) {
   if (input.role === "owner" && req.auth!.role !== "owner") {
     throw new HttpError(403, "Only an owner can grant the owner role");
   }
-  const user = await usersService.updateUser(req.auth!.tenantId, req.params.id as string, input);
+  const user = await usersService.updateUser(req.auth!.tenantId, req.params.id as string, req.auth!.role, input);
   res.json(user);
 }
 

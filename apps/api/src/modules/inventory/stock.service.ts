@@ -101,6 +101,31 @@ export async function adjustStock(executor: DbOrTx, params: AdjustStockParams) {
   return updated;
 }
 
+/** Manual stock adjustments have no dedicated table of their own to dedupe against — the
+ * client-supplied idempotency key is stored as the stock_movements referenceId instead. */
+export async function findAdjustmentByIdempotencyKey(tenantId: string, idempotencyKey: string) {
+  const [movement] = await db
+    .select({ id: stockMovements.id, productId: stockMovements.productId, warehouseId: stockMovements.warehouseId })
+    .from(stockMovements)
+    .innerJoin(products, eq(products.id, stockMovements.productId))
+    .where(
+      and(
+        eq(products.tenantId, tenantId),
+        eq(stockMovements.reason, "adjustment"),
+        eq(stockMovements.referenceId, idempotencyKey),
+      ),
+    )
+    .limit(1);
+  if (!movement) return null;
+
+  const [stockRow] = await db
+    .select()
+    .from(productStock)
+    .where(and(eq(productStock.productId, movement.productId), eq(productStock.warehouseId, movement.warehouseId)))
+    .limit(1);
+  return stockRow ?? null;
+}
+
 export function listStockForProduct(tenantId: string, productId: string) {
   return db
     .select({

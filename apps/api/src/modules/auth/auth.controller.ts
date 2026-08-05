@@ -22,9 +22,13 @@ function serializeUser(user: {
   };
 }
 
+function requestMeta(req: Request) {
+  return { ipAddress: req.ip ?? null, userAgent: req.headers["user-agent"] ?? null };
+}
+
 export async function register(req: Request, res: Response) {
   const input = registerSchema.parse(req.body);
-  const result = await authService.registerTenant(input);
+  const result = await authService.registerTenant(input, requestMeta(req));
   res.status(201).json({
     tenant: result.tenant,
     user: serializeUser(result.user),
@@ -35,7 +39,7 @@ export async function register(req: Request, res: Response) {
 
 export async function login(req: Request, res: Response) {
   const input = loginSchema.parse(req.body);
-  const result = await authService.login(input);
+  const result = await authService.login(input, requestMeta(req));
   res.json({
     user: serializeUser(result.user),
     accessToken: result.accessToken,
@@ -45,7 +49,7 @@ export async function login(req: Request, res: Response) {
 
 export async function refresh(req: Request, res: Response) {
   const input = refreshSchema.parse(req.body);
-  const result = await authService.refresh(input.refreshToken);
+  const result = await authService.refresh(input.refreshToken, requestMeta(req));
   res.json({
     user: serializeUser(result.user),
     accessToken: result.accessToken,

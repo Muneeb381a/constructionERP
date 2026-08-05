@@ -13,6 +13,7 @@ import { listUnits } from "../lib/api/units";
 import { createPurchaseInvoice, type CreatePurchaseInvoiceInput } from "../lib/api/invoices";
 import { getParty, type Party } from "../lib/api/parties";
 import { getProduct } from "../lib/api/products";
+import { openInvoicePdf } from "../lib/printInvoice";
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
@@ -41,6 +42,8 @@ export function PurchaseInvoicePage() {
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successInvoiceNo, setSuccessInvoiceNo] = useState<string | null>(null);
+  const [successInvoiceId, setSuccessInvoiceId] = useState<string | null>(null);
+  const [printBlocked, setPrintBlocked] = useState(false);
   const [reorderLoading, setReorderLoading] = useState(false);
   const reorderHandled = useRef(false);
 
@@ -67,14 +70,18 @@ export function PurchaseInvoicePage() {
 
   const mutation = useMutation({
     mutationFn: (input: CreatePurchaseInvoiceInput) => createPurchaseInvoice(input),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       setSuccessInvoiceNo(result.invoice.invoiceNo);
+      setSuccessInvoiceId(result.invoice.id);
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       clear();
       setParty(null);
       setDiscount(0);
       setSubmitError(null);
       setIdempotencyKey(crypto.randomUUID());
+
+      const opened = await openInvoicePdf(result.invoice.id);
+      setPrintBlocked(!opened);
     },
     onError: (err) => {
       setSubmitError(axiosErrorMessage(err) ?? "Failed to create purchase");
@@ -113,11 +120,32 @@ export function PurchaseInvoicePage() {
       )}
 
       {successInvoiceNo && (
-        <div className="flex items-center justify-between rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
-          <span>Purchase invoice {successInvoiceNo} created.</span>
-          <button onClick={() => setSuccessInvoiceNo(null)} className="font-medium hover:underline">
-            Dismiss
-          </button>
+        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
+          <div className="flex items-center justify-between gap-3">
+            <span>
+              Purchase invoice {successInvoiceNo} created.
+              {printBlocked && " Your browser blocked the automatic print tab — use the button below."}
+            </span>
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                onClick={async () => {
+                  if (successInvoiceId) setPrintBlocked(!(await openInvoicePdf(successInvoiceId)));
+                }}
+                className="font-medium hover:underline"
+              >
+                Print Invoice
+              </button>
+              <button
+                onClick={() => {
+                  setSuccessInvoiceNo(null);
+                  setSuccessInvoiceId(null);
+                }}
+                className="font-medium hover:underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -152,7 +180,7 @@ export function PurchaseInvoicePage() {
               step="0.01"
               min="0"
               value={discount}
-              onChange={(e) => setDiscount(Number(e.target.value))}
+              onChange={(e) => setDiscount(Math.min(subtotal, Math.max(0, Number(e.target.value))))}
               className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>

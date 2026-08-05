@@ -12,12 +12,6 @@ function parseId(raw: string) {
   return raw;
 }
 
-function assertCanSetCreditLimit(role: string) {
-  if (role !== "owner" && role !== "manager") {
-    throw new HttpError(403, "Only an owner or manager can set a party's credit limit");
-  }
-}
-
 export async function list(req: Request, res: Response) {
   const query = listPartiesQuerySchema.parse(req.query);
   const result = await partiesService.listParties(req.auth!.tenantId, query);
@@ -41,19 +35,13 @@ export async function get(req: Request, res: Response) {
 
 export async function create(req: Request, res: Response) {
   const input = createPartySchema.parse(req.body);
-  if (input.creditLimit != null && input.creditLimit > 0) {
-    assertCanSetCreditLimit(req.auth!.role);
-  }
-  const party = await partiesService.createParty(req.auth!.tenantId, input);
+  const party = await partiesService.createParty(req.auth!.tenantId, req.auth!.role, input);
   res.status(201).json(party);
 }
 
 export async function update(req: Request, res: Response) {
   const input = updatePartySchema.parse(req.body);
-  if (input.creditLimit != null) {
-    assertCanSetCreditLimit(req.auth!.role);
-  }
-  const party = await partiesService.updateParty(req.auth!.tenantId, parseId(req.params.id as string), input);
+  const party = await partiesService.updateParty(req.auth!.tenantId, parseId(req.params.id as string), req.auth!.role, input);
   res.json(party);
 }
 

@@ -226,7 +226,7 @@ export function EmployeesPage() {
   const [modal, setModal] = useState<null | { mode: "edit"; employee: Employee } | { mode: "delete"; employee: Employee }>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const { data: employees, isLoading } = useQuery({
+  const { data: employees, isLoading, isError } = useQuery({
     queryKey: ["employees", search, showInactive],
     queryFn: () => listEmployees({ search: search || undefined, includeInactive: showInactive }),
   });
@@ -275,6 +275,8 @@ export function EmployeesPage() {
 
       {isLoading ? (
         <Loader />
+      ) : isError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load employees. Try refreshing.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
           <table className="w-full text-left text-sm">

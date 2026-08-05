@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
 import { branchesRoutes } from "./modules/branches/branches.routes.js";
@@ -28,16 +30,29 @@ import { closingRoutes } from "./modules/closing/closing.routes.js";
 import { estimatorRoutes } from "./modules/estimator/estimator.routes.js";
 import { rateLocksRoutes } from "./modules/rateLocks/rateLocks.routes.js";
 import { projectsRoutes } from "./modules/projects/projects.routes.js";
+import { platformAdminRoutes } from "./modules/platformAdmin/platformAdmin.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 export const app = express();
 
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.use("/api/auth", authRoutes);
+// Brute-force guard on login/register/refresh — this store is in-memory, so on Vercel's
+// serverless runtime it only limits per warm instance rather than globally across every
+// cold start/region. Still meaningfully raises the bar over having nothing at all; a
+// shared store (e.g. Redis) would be needed for a hard global limit.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts — please wait a few minutes and try again." },
+});
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/branches", branchesRoutes);
 app.use("/api/categories", categoriesRoutes);
@@ -65,6 +80,9 @@ app.use("/api/projects", projectsRoutes);
 app.use("/api/public", publicPartyRoutes);
 app.use("/api/public/quotations", publicQuotationRoutes);
 app.use("/api/public/tracking", publicTrackingRoutes);
+// SaaS operator layer, sits above every tenant — deliberately its own auth stack
+// (see middleware/platformAuth.middleware.ts), never mixed with the tenant routes above.
+app.use("/api/platform-admin", platformAdminRoutes);
 
 app.use(errorHandler);
 

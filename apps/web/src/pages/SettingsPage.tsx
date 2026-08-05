@@ -1,13 +1,15 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Camera, ShieldCheck, User as UserIcon } from "lucide-react";
+import { Building2, Camera, RefreshCw, ShieldCheck, User as UserIcon } from "lucide-react";
 import { Loader } from "../components/Loader";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
+import { formatCurrency } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { getMe, updateMe, uploadMyAvatar } from "../lib/api/users";
 import { getMyTenant, updateTenant, uploadTenantLogo, type Tenant } from "../lib/api/tenants";
 import { verifyLedgerIntegrity, type LedgerIntegrityResult } from "../lib/api/ledger";
+import { getLastReconciliationRun, runReconciliationNow, type ReconciliationResult } from "../lib/api/reconciliation";
 
 function AvatarPicker({
   imageUrl,
@@ -66,7 +68,7 @@ function ProfileSection() {
   const [error, setError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
 
-  const { data: me, isLoading } = useQuery({ queryKey: ["me"], queryFn: getMe });
+  const { data: me, isLoading, isError } = useQuery({ queryKey: ["me"], queryFn: getMe });
 
   const saveMutation = useMutation({
     mutationFn: (input: { name: string }) => updateMe(input),
@@ -88,7 +90,8 @@ function ProfileSection() {
     onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to upload photo"),
   });
 
-  if (isLoading || !me) return <Loader />;
+  if (isLoading) return <Loader />;
+  if (isError || !me) return <p className="text-sm text-red-600 dark:text-red-400">Failed to load your profile. Try refreshing.</p>;
 
   const displayName = name ?? me.name;
 
@@ -150,7 +153,7 @@ function ShopDetailsSection() {
   const [error, setError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
 
-  const { data: tenant, isLoading } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant });
+  const { data: tenant, isLoading, isError } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant });
 
   const saveMutation = useMutation({
     mutationFn: (input: { businessName: string; address: string | null; phone: string | null }) => updateTenant(input),
@@ -168,7 +171,8 @@ function ShopDetailsSection() {
     onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to upload logo"),
   });
 
-  if (isLoading || !tenant) return <Loader />;
+  if (isLoading) return <Loader />;
+  if (isError || !tenant) return <p className="text-sm text-red-600 dark:text-red-400">Failed to load shop settings. Try refreshing.</p>;
 
   const current = form ?? { businessName: tenant.businessName, address: tenant.address ?? "", phone: tenant.phone ?? "" };
 
@@ -244,7 +248,7 @@ function ShopDetailsSection() {
 function PreferencesSection() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const { data: tenant, isLoading } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant });
+  const { data: tenant, isLoading, isError } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant });
 
   const toggleMutation = useMutation({
     mutationFn: (allowNegativeStock: boolean) => updateTenant({ allowNegativeStock }),
@@ -258,7 +262,8 @@ function PreferencesSection() {
     onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to update preference"),
   });
 
-  if (isLoading || !tenant) return <Loader />;
+  if (isLoading) return <Loader />;
+  if (isError || !tenant) return <p className="text-sm text-red-600 dark:text-red-400">Failed to load shop settings. Try refreshing.</p>;
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -376,6 +381,82 @@ function LedgerIntegritySection() {
   );
 }
 
+function ReconciliationSection() {
+  const role = useAuthStore((s) => s.user?.role);
+  const canRun = role === "owner";
+  const queryClient = useQueryClient();
+  const [result, setResult] = useState<ReconciliationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const { data: lastRun, isLoading } = useQuery({ queryKey: ["reconciliation-last-run"], queryFn: getLastReconciliationRun });
+
+  const mutation = useMutation({
+    mutationFn: runReconciliationNow,
+    onSuccess: (data) => {
+      setResult(data);
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-last-run"] });
+    },
+    onError: (err) => setError(axiosErrorMessage(err) ?? "Failed to run reconciliation"),
+  });
+
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <RefreshCw size={16} className="text-gray-400" />
+        Balance Reconciliation
+      </h2>
+      <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+        Every customer/supplier balance is re-checked against their ledger history automatically every night. This shows
+        the result of that check, and lets an owner run it on demand.
+      </p>
+
+      {isLoading ? (
+        <Loader />
+      ) : lastRun ? (
+        <div
+          className={`rounded-md border px-3 py-2 text-sm ${
+            lastRun.mismatchCount === 0
+              ? "border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+          }`}
+        >
+          Last checked {new Date(lastRun.createdAt).toLocaleString()} ({lastRun.triggeredBy === "cron" ? "automatic" : "manual"}) —{" "}
+          {lastRun.mismatchCount === 0 ? "all balances matched their ledger history." : `${lastRun.mismatchCount} mismatch(es) found and corrected.`}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500 dark:text-gray-400">No reconciliation has run yet.</p>
+      )}
+
+      {result && (
+        <div className="mt-3 space-y-2">
+          {result.mismatches.map((m) => (
+            <div key={m.partyId} className="rounded-md border border-amber-200 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:text-amber-300">
+              <span className="font-medium">{m.partyName}</span>: was {formatCurrency(m.before)}, corrected to {formatCurrency(m.after)} (
+              {m.drift > 0 ? "+" : ""}
+              {formatCurrency(m.drift)})
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      {canRun && (
+        <button
+          onClick={() => {
+            setError(null);
+            mutation.mutate();
+          }}
+          disabled={mutation.isPending}
+          className="mt-4 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          {mutation.isPending ? "Running…" : "Run Reconciliation Now"}
+        </button>
+      )}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canManageShop = role === "owner" || role === "manager";
@@ -391,6 +472,7 @@ export function SettingsPage() {
           <ShopDetailsSection />
           <PreferencesSection />
           <LedgerIntegritySection />
+          <ReconciliationSection />
         </>
       )}
     </div>

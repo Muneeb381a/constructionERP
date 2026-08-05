@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import type { DbOrTx } from "../../db/index.js";
 import { db } from "../../db/index.js";
@@ -5,6 +6,7 @@ import { invoices, parties } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { pgErrorCode } from "../../lib/pgError.js";
 import { listBillsForParty } from "../payments/payments.service.js";
+import { postLedgerEntry } from "../ledger/ledger.service.js";
 import type { CreatePartyInput, ListPartiesQuery, UpdatePartyInput } from "./parties.schema.js";
 
 /** Locks the party row for the caller's transaction so concurrent invoices/payments against the same party can't race past a stale balance/credit check. */
@@ -76,23 +78,57 @@ export async function getParty(tenantId: string, partyId: string) {
   return party;
 }
 
-export async function createParty(tenantId: string, input: CreatePartyInput) {
-  const [party] = await db
-    .insert(parties)
-    .values({
-      tenantId,
-      type: input.type,
-      name: input.name,
-      phone: input.phone ?? null,
-      cnic: input.cnic ?? null,
-      address: input.address ?? null,
-      creditLimit: input.creditLimit?.toString() ?? "0",
-    })
-    .returning();
-  return party;
+// Authoritative guard, kept here (not just in the controller) so a credit-limit change can
+// never slip through a future route/controller edit that forgets the same check.
+function assertCanSetCreditLimit(callerRole: string) {
+  if (callerRole !== "owner" && callerRole !== "manager") {
+    throw new HttpError(403, "Only an owner or manager can set a party's credit limit");
+  }
 }
 
-export async function updateParty(tenantId: string, partyId: string, input: UpdatePartyInput) {
+export async function createParty(tenantId: string, callerRole: string, input: CreatePartyInput) {
+  if (input.creditLimit != null && input.creditLimit > 0) {
+    assertCanSetCreditLimit(callerRole);
+  }
+
+  return db.transaction(async (tx) => {
+    const [party] = await tx
+      .insert(parties)
+      .values({
+        tenantId,
+        type: input.type,
+        name: input.name,
+        phone: input.phone ?? null,
+        cnic: input.cnic ?? null,
+        address: input.address ?? null,
+        creditLimit: input.creditLimit?.toString() ?? "0",
+      })
+      .returning();
+
+    if (input.openingBalance) {
+      // postLedgerEntry recalculates and writes cachedBalance itself — never set it directly
+      // here, same rule as every other balance-affecting write in the app.
+      await postLedgerEntry(tx, {
+        tenantId,
+        partyId: party.id,
+        direction: input.openingBalance.direction,
+        amount: input.openingBalance.amount,
+        sourceType: "opening_balance",
+        sourceId: randomUUID(),
+      });
+      const [withBalance] = await tx.select().from(parties).where(eq(parties.id, party.id)).limit(1);
+      return withBalance!;
+    }
+
+    return party;
+  });
+}
+
+export async function updateParty(tenantId: string, partyId: string, callerRole: string, input: UpdatePartyInput) {
+  if (input.creditLimit != null) {
+    assertCanSetCreditLimit(callerRole);
+  }
+
   const [updated] = await db
     .update(parties)
     .set({

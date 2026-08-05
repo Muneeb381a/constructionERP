@@ -19,7 +19,7 @@ export function QuotationsListPage() {
   const [status, setStatus] = useState<QuotationStatus | "">("");
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["quotations", status, page],
     queryFn: () => listQuotations({ status: status || undefined, page }),
   });
@@ -54,6 +54,8 @@ export function QuotationsListPage() {
 
       {isLoading ? (
         <Loader />
+      ) : isError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load quotations. Try refreshing.</p>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">

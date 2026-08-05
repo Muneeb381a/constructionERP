@@ -22,12 +22,18 @@ export async function getPartyLedger(partyId: string) {
   return res.data;
 }
 
-export async function postOpeningBalance(partyId: string, input: { direction: "debit" | "credit"; amount: number }) {
+export async function postOpeningBalance(
+  partyId: string,
+  input: { idempotencyKey: string; direction: "debit" | "credit"; amount: number },
+) {
   const res = await apiClient.post<LedgerEntry>(`/parties/${partyId}/ledger/opening-balance`, input);
   return res.data;
 }
 
-export async function postLedgerAdjustment(partyId: string, input: { direction: "debit" | "credit"; amount: number }) {
+export async function postLedgerAdjustment(
+  partyId: string,
+  input: { idempotencyKey: string; direction: "debit" | "credit"; amount: number },
+) {
   const res = await apiClient.post<LedgerEntry>(`/parties/${partyId}/ledger/adjustment`, input);
   return res.data;
 }

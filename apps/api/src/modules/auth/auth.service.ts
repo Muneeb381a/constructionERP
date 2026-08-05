@@ -14,7 +14,11 @@ type AuthedUser = {
   role: "owner" | "manager" | "cashier" | "accountant";
 };
 
-async function issueTokenPair(user: AuthedUser) {
+// Captured at login/register/refresh so a platform admin can see "which devices are
+// logged into this shop" (GET /platform-admin/tenants/:id) without a separate session table.
+export type RequestMeta = { ipAddress: string | null; userAgent: string | null };
+
+async function issueTokenPair(user: AuthedUser, meta: RequestMeta) {
   const accessToken = signAccessToken({
     sub: user.id,
     tenantId: user.tenantId,
@@ -28,14 +32,25 @@ async function issueTokenPair(user: AuthedUser) {
   await db.insert(refreshTokens).values({
     id: jti,
     userId: user.id,
+    tenantId: user.tenantId,
     tokenHash: hashToken(refreshToken),
+    userAgent: meta.userAgent,
+    ipAddress: meta.ipAddress,
+    lastUsedAt: new Date(),
     expiresAt,
   });
 
   return { accessToken, refreshToken };
 }
 
-export async function registerTenant(input: RegisterInput) {
+async function assertTenantActive(tenantId: string) {
+  const [tenant] = await db.select({ status: tenants.status }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+  if (!tenant || tenant.status !== "active") {
+    throw new HttpError(403, "This shop's account has been suspended. Contact support.");
+  }
+}
+
+export async function registerTenant(input: RegisterInput, meta: RequestMeta) {
   const passwordHash = await hashPassword(input.password);
 
   // issueTokenPair writes to refresh_tokens via the outer `db`, so the tenant/branch/user
@@ -71,17 +86,20 @@ export async function registerTenant(input: RegisterInput) {
     return { tenant, branch, user };
   });
 
-  const tokens = await issueTokenPair({
-    id: user.id,
-    tenantId: tenant.id,
-    branchId: branch.id,
-    role: user.role,
-  });
+  const tokens = await issueTokenPair(
+    {
+      id: user.id,
+      tenantId: tenant.id,
+      branchId: branch.id,
+      role: user.role,
+    },
+    meta,
+  );
 
   return { tenant, branch, user, ...tokens };
 }
 
-export async function login(input: LoginInput) {
+export async function login(input: LoginInput, meta: RequestMeta) {
   const [user] = await db
     .select()
     .from(users)
@@ -97,17 +115,22 @@ export async function login(input: LoginInput) {
     throw new HttpError(401, "Invalid email or password");
   }
 
-  const tokens = await issueTokenPair({
-    id: user.id,
-    tenantId: user.tenantId,
-    branchId: user.branchId,
-    role: user.role,
-  });
+  await assertTenantActive(user.tenantId);
+
+  const tokens = await issueTokenPair(
+    {
+      id: user.id,
+      tenantId: user.tenantId,
+      branchId: user.branchId,
+      role: user.role,
+    },
+    meta,
+  );
 
   return { user, ...tokens };
 }
 
-export async function refresh(refreshToken: string) {
+export async function refresh(refreshToken: string, meta: RequestMeta) {
   let payload;
   try {
     payload = verifyRefreshToken(refreshToken);
@@ -139,15 +162,20 @@ export async function refresh(refreshToken: string) {
     throw new HttpError(401, "User account no longer active");
   }
 
+  await assertTenantActive(user.tenantId);
+
   // rotate: revoke the used token before issuing a new pair
   await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, stored.id));
 
-  const tokens = await issueTokenPair({
-    id: user.id,
-    tenantId: user.tenantId,
-    branchId: user.branchId,
-    role: user.role,
-  });
+  const tokens = await issueTokenPair(
+    {
+      id: user.id,
+      tenantId: user.tenantId,
+      branchId: user.branchId,
+      role: user.role,
+    },
+    meta,
+  );
 
   return { user, ...tokens };
 }

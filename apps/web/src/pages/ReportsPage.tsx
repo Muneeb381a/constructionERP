@@ -31,7 +31,7 @@ const PRESETS = [
 
 function AgingReportSection() {
   const [partyType, setPartyType] = useState<"customer" | "supplier">("customer");
-  const { data, isLoading } = useQuery({ queryKey: ["reports-aging", partyType], queryFn: () => getAgingReport(partyType) });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["reports-aging", partyType], queryFn: () => getAgingReport(partyType) });
 
   const grandTotal = (data ?? []).reduce((sum, r) => sum + r.total, 0);
 
@@ -60,6 +60,8 @@ function AgingReportSection() {
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
+        ) : isError ? (
+          <p className="p-4 text-sm text-red-600 dark:text-red-400">Failed to load the aging report. Try refreshing.</p>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
@@ -151,7 +153,7 @@ function ReorderModal({
 }
 
 function ReorderSuggestionsSection() {
-  const { data, isLoading } = useQuery({ queryKey: ["reports-reorder"], queryFn: getReorderSuggestions });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["reports-reorder"], queryFn: getReorderSuggestions });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showReorderModal, setShowReorderModal] = useState(false);
 
@@ -193,6 +195,8 @@ function ReorderSuggestionsSection() {
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
+        ) : isError ? (
+          <p className="p-4 text-sm text-red-600 dark:text-red-400">Failed to load reorder suggestions. Try refreshing.</p>
         ) : rows.length === 0 ? (
           <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Nothing below its reorder point right now.</p>
         ) : (
@@ -285,16 +289,17 @@ export function ReportsPage() {
     enabled: canView,
   });
 
-  if (!canView) {
-    return <p className="text-sm text-gray-500 dark:text-gray-400">Reports are available to owners, managers, and accountants only.</p>;
-  }
-
   const productRows = useMemo(() => {
     const orderCounts = new Map((topProducts ?? []).map((p) => [p.productId, p.orderCount]));
     return [...(profitByProduct ?? [])]
       .sort((a, b) => b.revenue - a.revenue)
       .map((p) => ({ ...p, orderCount: orderCounts.get(p.productId) ?? null }));
   }, [profitByProduct, topProducts]);
+
+  if (!canView) {
+    return <p className="text-sm text-gray-500 dark:text-gray-400">Reports are available to owners, managers, and accountants only.</p>;
+  }
+
   const topProductRows = productRows.slice(0, 10);
   const maxRevenue = Math.max(1, ...topProductRows.map((p) => p.revenue));
 

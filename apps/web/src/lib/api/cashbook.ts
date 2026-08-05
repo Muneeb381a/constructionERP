@@ -27,7 +27,13 @@ export async function getCashBookBalance(branchId: string) {
   return res.data;
 }
 
-export async function createCashBookEntry(input: { branchId: string; direction: "debit" | "credit"; amount: number; description?: string | null }) {
+export async function createCashBookEntry(input: {
+  idempotencyKey: string;
+  branchId: string;
+  direction: "debit" | "credit";
+  amount: number;
+  description?: string | null;
+}) {
   const res = await apiClient.post<CashBookEntry>("/cash-book", input);
   return res.data;
 }

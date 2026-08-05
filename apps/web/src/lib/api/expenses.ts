@@ -23,6 +23,7 @@ export type ExpenseListResponse = {
 };
 
 export type ExpenseInput = {
+  idempotencyKey: string;
   branchId: string;
   category: string;
   amount: number;

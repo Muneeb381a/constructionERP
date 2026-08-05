@@ -27,7 +27,19 @@ function AuditRow({ entry }: { entry: AuditLogEntry }) {
   const summary = diffLine(entry.beforeData, entry.afterData);
 
   return (
-    <tr className="cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+    <tr
+      className="cursor-pointer"
+      onClick={() => setExpanded((v) => !v)}
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setExpanded((v) => !v);
+        }
+      }}
+    >
       <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{new Date(entry.createdAt).toLocaleString()}</td>
       <td className="px-4 py-2 text-gray-900 dark:text-gray-100">{entry.userName ?? "—"}</td>
       <td className="px-4 py-2">
@@ -50,7 +62,7 @@ export function AuditLogPage() {
   const canView = role === "owner" || role === "manager";
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["audit-log", page],
     queryFn: () => listAuditLog({ page }),
     enabled: canView,
@@ -69,6 +81,8 @@ export function AuditLogPage() {
 
       {isLoading ? (
         <Loader />
+      ) : isError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">Failed to load the audit log. Try refreshing.</p>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
