@@ -43,12 +43,18 @@ export function LoginPage() {
   return (
     <div className="grid min-h-screen grid-cols-1 md:grid-cols-2">
       {/* Branding panel — hidden below md, this is the app's construction identity, not
-          just decoration, so it's built with the same iconography as the main nav. */}
-      <div className="brick-pattern relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-gray-900 via-gray-900 to-stone-900 p-12 text-white md:flex">
-        <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
+          just decoration, so it's built with the same iconography as the main nav.
+          Each decorative layer (gradient, brick texture, glow) is its own element —
+          stacking several `background-image`s on one element would fight, since
+          Tailwind's utilities live in a cascade layer and any plain-CSS background set
+          on the same element wins outright regardless of source order. */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-gray-900 via-gray-900 to-stone-900 p-12 text-white md:flex">
+        <div className="brick-pattern pointer-events-none absolute inset-0" />
+        <div className="pointer-events-none absolute -bottom-32 -right-20 h-80 w-80 rounded-full bg-amber-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 top-1/3 h-56 w-56 rounded-full bg-orange-600/10 blur-3xl" />
 
         <div className="relative flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 shadow-lg shadow-amber-950/40">
             <HardHat size={20} className="text-amber-950" strokeWidth={2.25} />
           </div>
           <span className="text-lg font-semibold tracking-tight">{t("app.name")}</span>
@@ -56,7 +62,8 @@ export function LoginPage() {
 
         <div className="relative space-y-8">
           <div>
-            <h1 className="text-3xl font-semibold leading-tight text-balance">
+            <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">Aapki dukaan, digital</span>
+            <h1 className="mt-3 text-3xl font-semibold leading-tight text-balance">
               Building material dealers ke liye, banaya gaya.
             </h1>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-gray-300">
@@ -67,7 +74,7 @@ export function LoginPage() {
           <ul className="space-y-3.5">
             {FEATURES.map((f) => (
               <li key={f.key} className="flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 ring-1 ring-white/10">
                   <f.icon size={15} className="text-amber-400" />
                 </div>
                 <span className="text-sm text-gray-200">{f.label}</span>

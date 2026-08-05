@@ -15,14 +15,17 @@ body {
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Running-bond brick coursing, drawn purely in CSS (no image asset) — used behind the
-   branding panel on the auth pages to keep the construction identity visible without
-   competing with the form. Each "course" is offset by half a brick, like a real wall. */
+/* Running-bond brick coursing, drawn purely in CSS (no image asset) — used as a decorative
+   overlay behind the branding panel on the auth pages. Deliberately its own absolutely-
+   positioned element rather than sharing a background with the panel's gradient: Tailwind's
+   utilities live inside a cascade @layer, so any background-image set here on the SAME
+   element as a `bg-linear-to-*` utility would unconditionally win over it (unlayered CSS
+   always beats layered CSS, regardless of source order) and blank the gradient out entirely.
+   Each brick "course" is offset by half a brick, like a real wall. */
 .brick-pattern {
   --brick-w: 64px;
   --brick-h: 28px;
-  --mortar: rgba(255, 255, 255, 0.08);
-  background-color: transparent;
+  --mortar: rgba(255, 255, 255, 0.09);
   background-image:
     linear-gradient(var(--mortar) 1.5px, transparent 1.5px),
     linear-gradient(90deg, var(--mortar) 1.5px, transparent 1.5px),
