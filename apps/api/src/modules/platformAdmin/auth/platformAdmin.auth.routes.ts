@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit from "../../../lib/rateLimit.js";
 import { env } from "../../../config/env.js";
 import * as authController from "./platformAdmin.auth.controller.js";
 

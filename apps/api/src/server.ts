@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import helmet from "./lib/helmet.js";
+import rateLimit from "./lib/rateLimit.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
 import { branchesRoutes } from "./modules/branches/branches.routes.js";
