@@ -44,7 +44,7 @@ export function LoginPage() {
     <div className="grid min-h-screen grid-cols-1 md:grid-cols-2">
       {/* Branding panel — hidden below md, this is the app's construction identity, not
           just decoration, so it's built with the same iconography as the main nav. */}
-      <div className="brick-pattern relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-gray-900 via-gray-900 to-stone-900 p-12 text-white md:flex">
+      <div className="brick-pattern relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-gray-900 via-gray-900 to-stone-900 p-12 text-white md:flex">
         <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
 
         <div className="relative flex items-center gap-2.5">
