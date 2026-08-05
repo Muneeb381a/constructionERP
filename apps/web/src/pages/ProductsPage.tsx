@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Plus, RotateCcw, Tags, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, RotateCcw, Ruler, Tags, Trash2, X } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -16,7 +16,7 @@ import {
   type Category,
   type CategoryInput,
 } from "../lib/api/categories";
-import { listUnits } from "../lib/api/units";
+import { createUnit, deleteUnit, listUnits, updateUnit, type Unit, type UnitInput } from "../lib/api/units";
 import {
   bulkUpdatePrices,
   createProduct,
@@ -431,6 +431,206 @@ function CategoriesManager() {
   );
 }
 
+const emptyNewUnit: UnitInput = { name: "", shortCode: "" };
+
+function UnitsManager() {
+  const queryClient = useQueryClient();
+  const { data: units, isLoading } = useQuery({ queryKey: ["units"], queryFn: listUnits });
+
+  const [newUnit, setNewUnit] = useState<UnitInput>(emptyNewUnit);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<UnitInput>(emptyNewUnit);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["units"] });
+  }
+
+  const createMutation = useMutation({
+    mutationFn: (input: UnitInput) => createUnit(input),
+    onSuccess: () => {
+      invalidate();
+      setNewUnit(emptyNewUnit);
+      setAddError(null);
+    },
+    onError: (err) => setAddError(axiosErrorMessage(err) ?? "Failed to add unit"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: number; input: UnitInput }) => updateUnit(id, input),
+    onSuccess: () => {
+      invalidate();
+      setEditingId(null);
+      setEditError(null);
+    },
+    onError: (err) => setEditError(axiosErrorMessage(err) ?? "Failed to save changes"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteUnit(id),
+    onSuccess: () => {
+      invalidate();
+      setDeletingId(null);
+      setDeleteError(null);
+    },
+    onError: (err) => setDeleteError(axiosErrorMessage(err) ?? "Failed to delete unit"),
+  });
+
+  function startEdit(u: Unit) {
+    setEditingId(u.id);
+    setEditDraft({ name: u.name, shortCode: u.shortCode ?? "" });
+    setEditError(null);
+  }
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!newUnit.name.trim()) return;
+          createMutation.mutate({ name: newUnit.name.trim(), shortCode: newUnit.shortCode?.trim() || null });
+        }}
+        className="flex items-end gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+      >
+        <div className="flex-1">
+          <label className={labelClass}>Name</label>
+          <input
+            required
+            placeholder="e.g. Kilogram"
+            value={newUnit.name}
+            onChange={(e) => setNewUnit({ ...newUnit, name: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+        <div className="w-28">
+          <label className={labelClass}>Short code</label>
+          <input
+            placeholder="kg"
+            value={newUnit.shortCode ?? ""}
+            onChange={(e) => setNewUnit({ ...newUnit, shortCode: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={createMutation.isPending || !newUnit.name.trim()}
+          className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          <Plus size={15} />
+          Add
+        </button>
+      </form>
+      {addError && <p className="text-sm text-red-600 dark:text-red-400">{addError}</p>}
+
+      {isLoading ? (
+        <Loader />
+      ) : !units || units.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">No units yet — add your first one above.</p>
+      ) : (
+        <ul className="max-h-80 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+          {units.map((u) => (
+            <li key={u.id} className="px-3 py-2.5">
+              {editingId === u.id ? (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      value={editDraft.name}
+                      onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
+                      className={`${inputClass} flex-1`}
+                    />
+                    <input
+                      value={editDraft.shortCode ?? ""}
+                      onChange={(e) => setEditDraft({ ...editDraft, shortCode: e.target.value })}
+                      className={`${inputClass} w-28`}
+                    />
+                  </div>
+                  {editError && <p className="text-sm text-red-600 dark:text-red-400">{editError}</p>}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="flex items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      <X size={13} />
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() =>
+                        updateMutation.mutate({
+                          id: u.id,
+                          input: { name: editDraft.name.trim(), shortCode: editDraft.shortCode?.trim() || null },
+                        })
+                      }
+                      disabled={updateMutation.isPending || !editDraft.name.trim()}
+                      className="flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      <Check size={13} />
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : deletingId === u.id ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Delete <span className="font-medium">{u.name}</span>? This can't be undone.
+                  </p>
+                  {deleteError && <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setDeletingId(null);
+                        setDeleteError(null);
+                      }}
+                      className="rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => deleteMutation.mutate(u.id)}
+                      disabled={deleteMutation.isPending}
+                      className="rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {u.name}
+                    {u.shortCode && <span className="ml-1.5 text-xs text-gray-400 dark:text-gray-500">({u.shortCode})</span>}
+                  </p>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={() => startEdit(u)}
+                      aria-label={`Edit ${u.name}`}
+                      className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDeletingId(u.id);
+                        setDeleteError(null);
+                      }}
+                      aria-label={`Delete ${u.name}`}
+                      className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function BulkPriceUpdateForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: listCategories });
@@ -627,6 +827,7 @@ export function ProductsPage() {
     | { mode: "bulk-price" }
     | { mode: "deactivate"; product: Product }
     | { mode: "categories" }
+    | { mode: "units" }
   >(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -683,6 +884,13 @@ export function ProductsPage() {
           >
             <Tags size={15} />
             Categories
+          </button>
+          <button
+            onClick={() => setModal({ mode: "units" })}
+            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Ruler size={15} />
+            Units
           </button>
           <button
             onClick={() => setModal({ mode: "bulk-price" })}
@@ -837,6 +1045,11 @@ export function ProductsPage() {
       {modal?.mode === "categories" && (
         <Modal title="Manage Categories" onClose={() => setModal(null)} size="lg">
           <CategoriesManager />
+        </Modal>
+      )}
+      {modal?.mode === "units" && (
+        <Modal title="Manage Units" onClose={() => setModal(null)} size="lg">
+          <UnitsManager />
         </Modal>
       )}
       {modal?.mode === "deactivate" && (
