@@ -3,7 +3,7 @@ import { formatCurrency } from "../lib/format";
 import type { SalesTrendPoint } from "../lib/api/reports";
 
 const WIDTH = 800;
-const HEIGHT = 260;
+const HEIGHT = 280;
 const PAD = { top: 16, right: 16, bottom: 24, left: 68 };
 
 export function SalesTrendChart({ data }: { data: SalesTrendPoint[] }) {
@@ -56,14 +56,16 @@ export function SalesTrendChart({ data }: { data: SalesTrendPoint[] }) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs">
-        <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className="flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 dark:bg-blue-500/10">
           <span className="inline-block h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
-          Sales <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(totalSales)}</span>
+          <span className="text-blue-900 dark:text-blue-300">Sales</span>
+          <span className="font-semibold tabular-nums text-blue-900 dark:text-blue-200">{formatCurrency(totalSales)}</span>
         </span>
-        <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+        <span className="flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1.5 dark:bg-orange-500/10">
           <span className="inline-block h-2 w-2 rounded-full bg-orange-500 dark:bg-orange-400" />
-          Purchases <span className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(totalPurchases)}</span>
+          <span className="text-orange-900 dark:text-orange-300">Purchases</span>
+          <span className="font-semibold tabular-nums text-orange-900 dark:text-orange-200">{formatCurrency(totalPurchases)}</span>
         </span>
       </div>
 
@@ -129,14 +131,18 @@ export function SalesTrendChart({ data }: { data: SalesTrendPoint[] }) {
         )}
       </svg>
 
-      <div className="mt-1 h-9 text-center text-xs text-gray-600 dark:text-gray-400">
+      <div className="mt-2 flex h-10 items-center justify-center">
         {hovered && (
-          <>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{hovered.day}</span>
-            <br />
-            Sales {formatCurrency(hovered.salesTotal)} ({hovered.salesCount}) · Purchases {formatCurrency(hovered.purchasesTotal)} (
-            {hovered.purchasesCount})
-          </>
+          <div className="flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-1.5 text-xs dark:border-gray-800 dark:bg-gray-800/60">
+            <span className="font-semibold text-gray-900 dark:text-gray-100">{hovered.day}</span>
+            <span className="h-3 w-px bg-gray-300 dark:bg-gray-700" />
+            <span className="text-blue-700 dark:text-blue-400">
+              {formatCurrency(hovered.salesTotal)} <span className="text-gray-400 dark:text-gray-500">({hovered.salesCount})</span>
+            </span>
+            <span className="text-orange-700 dark:text-orange-400">
+              {formatCurrency(hovered.purchasesTotal)} <span className="text-gray-400 dark:text-gray-500">({hovered.purchasesCount})</span>
+            </span>
+          </div>
         )}
       </div>
     </div>

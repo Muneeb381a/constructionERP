@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
+  ArrowRight,
   Banknote,
   HandCoins,
   Landmark,
@@ -32,11 +33,17 @@ import { getAgingReport } from "../lib/api/reports";
 import { getMyTenant } from "../lib/api/tenants";
 import type { DashboardSummary } from "../lib/types";
 
+// Category colors are load-bearing elsewhere in the app (blue=sales, orange=purchases,
+// violet=payable, etc. — matches LedgerPage/PartyDetailPage) so they carry over unchanged.
+// What's new here is the accent motif itself: a colored left rail on every KPI card,
+// matching the left-border "total" box used on receipts/statements, so the numbers a
+// shopkeeper checks every morning read as the same brand as the paper they hand out.
 const ACCENT = {
-  blue: { bg: "bg-blue-50 dark:bg-blue-500/10", icon: "text-blue-600 dark:text-blue-400" },
-  orange: { bg: "bg-orange-50 dark:bg-orange-500/10", icon: "text-orange-600 dark:text-orange-400" },
-  green: { bg: "bg-green-50 dark:bg-green-500/10", icon: "text-green-600 dark:text-green-400" },
-  violet: { bg: "bg-violet-50 dark:bg-violet-500/10", icon: "text-violet-600 dark:text-violet-400" },
+  blue: { bg: "bg-blue-50 dark:bg-blue-500/10", icon: "text-blue-600 dark:text-blue-400", rail: "bg-blue-500" },
+  orange: { bg: "bg-orange-50 dark:bg-orange-500/10", icon: "text-orange-600 dark:text-orange-400", rail: "bg-orange-500" },
+  green: { bg: "bg-emerald-50 dark:bg-emerald-500/10", icon: "text-emerald-600 dark:text-emerald-400", rail: "bg-emerald-500" },
+  violet: { bg: "bg-violet-50 dark:bg-violet-500/10", icon: "text-violet-600 dark:text-violet-400", rail: "bg-violet-500" },
+  amber: { bg: "bg-amber-50 dark:bg-amber-500/10", icon: "text-amber-600 dark:text-amber-400", rail: "bg-amber-500" },
 };
 
 function PrimaryStat({
@@ -54,14 +61,15 @@ function PrimaryStat({
 }) {
   const colors = ACCENT[accent];
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 pl-6 shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
+      <div className={`absolute inset-y-0 left-0 w-1.5 ${colors.rail}`} />
       <div className="flex items-start justify-between">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</p>
-        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${colors.bg}`}>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${colors.bg}`}>
           <Icon size={18} className={colors.icon} />
         </div>
       </div>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{value}</p>
+      <p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">{value}</p>
       {sub && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{sub}</p>}
     </div>
   );
@@ -225,38 +233,53 @@ export function DashboardPage() {
   if (isLoading) return <Loader full label={t("dashboard.loading")} />;
   if (isError || !data) return <p className="text-sm text-red-600 dark:text-red-400">{t("dashboard.loadFailed")}</p>;
 
+  const netToday = data.today.sales.total - data.today.purchases.total;
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{t("dashboard.today")}</h1>
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-          {new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{t("dashboard.today")}</h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            {new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          </p>
+        </div>
+        <div
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            netToday >= 0
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              : "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+          }`}
+        >
+          {netToday >= 0 ? "+" : ""}
+          {formatCurrency(netToday)} net today
+        </div>
       </div>
 
       {/* quick actions — the two things done most often at the counter, front and center */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Link
           to="/sale"
-          className="flex items-center gap-3 rounded-xl bg-blue-600 p-4 text-white shadow-sm transition hover:bg-blue-700"
+          className="group flex items-center gap-3 rounded-2xl bg-blue-600 p-4 text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/15">
             <Plus size={20} />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">New Sale</p>
             <p className="text-xs text-blue-100">Create a bill</p>
           </div>
+          <ArrowRight size={16} className="shrink-0 text-blue-200 opacity-0 transition group-hover:opacity-100" />
         </Link>
 
         <button
           onClick={() => setShowPaymentModal(true)}
-          className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-green-300 hover:bg-green-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-green-900/10"
+          className="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-emerald-900/10"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 dark:bg-green-500/10">
-            <Banknote size={20} className="text-green-600 dark:text-green-400" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
+            <Banknote size={20} className="text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Record Payment</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Against any customer's bill</p>
           </div>
@@ -264,12 +287,12 @@ export function DashboardPage() {
 
         <Link
           to="/purchase"
-          className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-orange-900/10"
+          className="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-orange-900/10"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-500/10">
             <Truck size={20} className="text-orange-600 dark:text-orange-400" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">New Purchase</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Record a supplier bill</p>
           </div>
@@ -298,25 +321,9 @@ export function DashboardPage() {
       {/* outstanding pair */}
       <div>
         <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">{t("dashboard.outstanding")}</h2>
-        <div className="grid grid-cols-1 divide-y divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:grid-cols-2 sm:divide-x sm:divide-y-0 dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center gap-3 p-5">
-            <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${ACCENT.green.bg}`}>
-              <HandCoins size={18} className={ACCENT.green.icon} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("dashboard.receivable")}</p>
-              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(data.outstanding.receivables)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-5">
-            <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${ACCENT.violet.bg}`}>
-              <Landmark size={18} className={ACCENT.violet.icon} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("dashboard.payable")}</p>
-              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(data.outstanding.payables)}</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <PrimaryStat icon={HandCoins} accent="green" label={t("dashboard.receivable")} value={formatCurrency(data.outstanding.receivables)} />
+          <PrimaryStat icon={Landmark} accent="violet" label={t("dashboard.payable")} value={formatCurrency(data.outstanding.payables)} />
         </div>
       </div>
 
@@ -335,19 +342,20 @@ export function DashboardPage() {
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-md border border-green-300 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+                className="flex items-center gap-1.5 rounded-md border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
               >
                 <MessageCircle size={13} />
                 Send Alert
               </a>
             )}
           </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            {data.lowStock.length > 0 && <div className="absolute inset-y-0 left-0 w-1.5 bg-amber-500" />}
             {data.lowStock.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">{t("dashboard.noLowStock")}</p>
             ) : (
-              <>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <div className="pl-1">
+                <p className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
                   {data.lowStock.length} {data.lowStock.length === 1 ? "item" : "items"}
                 </p>
                 <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">below their minimum stock level</p>
@@ -369,7 +377,7 @@ export function DashboardPage() {
                 <Link to="/stock" className="mt-3 inline-block text-xs font-medium text-blue-600 hover:underline dark:text-blue-400">
                   View full stock →
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -380,15 +388,15 @@ export function DashboardPage() {
             <HandCoins size={15} className="text-red-500" />
             Customers with Most Outstanding
           </h2>
-          <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
             {topDebtors.length === 0 ? (
-              <p className="p-3 text-sm text-gray-500 dark:text-gray-400">No outstanding balances.</p>
+              <p className="p-4 text-sm text-gray-500 dark:text-gray-400">No outstanding balances.</p>
             ) : (
               <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                 {topDebtors.map((row) => {
                   const due = isReminderDue(row.lastReminderSentAt, reminderIntervalDays);
                   return (
-                    <li key={row.partyId} className="flex items-center justify-between gap-2 px-3 py-2.5">
+                    <li key={row.partyId} className="flex items-center justify-between gap-2 px-4 py-3">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <Link to={`/customers/${row.partyId}`} className="truncate text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">
                           {row.partyName}
@@ -400,14 +408,14 @@ export function DashboardPage() {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</span>
+                        <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</span>
                         {row.phone && (
                           <button
                             type="button"
                             onClick={() => sendReminder({ id: row.partyId, name: row.partyName, phone: row.phone! }, row.total)}
                             disabled={reminderLoadingId === row.partyId}
                             title="Send WhatsApp reminder"
-                            className="text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
+                            className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50 dark:text-emerald-400"
                           >
                             <MessageCircle size={15} />
                           </button>
@@ -431,26 +439,37 @@ export function DashboardPage() {
         {!topCustomers || topCustomers.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">No customer sales recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+              <thead className="bg-amber-50/60 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Customer</th>
-                  <th className="px-4 py-2.5 font-medium">Orders</th>
-                  <th className="px-4 py-2.5 font-medium">Total Spent</th>
-                  <th className="px-4 py-2.5 font-medium">Last Purchase</th>
+                  <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">Customer</th>
+                  <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">Orders</th>
+                  <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">Total Spent</th>
+                  <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">Last Purchase</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {topCustomers.map((customer) => (
-                  <tr key={customer.id}>
+                {topCustomers.map((customer, i) => (
+                  <tr key={customer.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
                     <td className="px-4 py-3">
-                      <Link to={`/customers/${customer.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
-                        {customer.name}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {i < 3 && (
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${
+                              i === 0 ? "bg-amber-500" : i === 1 ? "bg-gray-400" : "bg-orange-700"
+                            }`}
+                          >
+                            {i + 1}
+                          </span>
+                        )}
+                        <Link to={`/customers/${customer.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                          {customer.name}
+                        </Link>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{customer.orderCount}</td>
-                    <td className="px-4 py-3 text-gray-900 dark:text-gray-100">{formatCurrency(Number(customer.totalSpent))}</td>
+                    <td className="px-4 py-3 font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(Number(customer.totalSpent))}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                       {new Date(customer.lastPurchaseAt).toLocaleDateString()}
                     </td>

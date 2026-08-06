@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { BarChart3, Clock3, LineChart, PackageSearch, ShoppingCart, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowRight, BarChart3, Clock3, LineChart, PackageSearch, ShoppingCart, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { SalesTrendChart } from "../components/SalesTrendChart";
 import { Loader } from "../components/Loader";
 import { Modal } from "../components/Modal";
@@ -16,7 +16,7 @@ import type { ReorderState } from "./PurchaseInvoicePage";
 function marginBadgeClass(margin: number) {
   if (margin < 0) return "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300";
   if (margin < 15) return "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
-  return "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+  return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
 }
 
 function isoDate(d: Date) {
@@ -28,6 +28,12 @@ const PRESETS = [
   { label: "Last 30 days", days: 30 },
   { label: "Last 90 days", days: 90 },
 ];
+
+// Same amber-tinted header used on receipts/statements — every data table across the app
+// now shares that one branded surface instead of a generic gray, so "reports" and "the
+// bill you hand a customer" read as the same product rather than two different tools.
+const TH = "px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200";
+const THEAD = "bg-amber-50/60 dark:bg-amber-500/10";
 
 function AgingReportSection() {
   const [partyType, setPartyType] = useState<"customer" | "supplier">("customer");
@@ -42,51 +48,56 @@ function AgingReportSection() {
           <Clock3 size={16} className="text-gray-400" />
           Udhaar Aging
         </h2>
-        <div className="flex items-center gap-1 rounded-md border border-gray-300 p-0.5 dark:border-gray-700">
+        <div className="relative flex items-center rounded-full bg-gray-100 p-0.5 dark:bg-gray-800">
+          <div
+            aria-hidden="true"
+            className="absolute inset-y-0.5 w-[calc(50%-2px)] rounded-full bg-blue-600 shadow-sm transition-transform duration-200 ease-out"
+            style={{ transform: partyType === "supplier" ? "translateX(calc(100% + 4px))" : "translateX(0)" }}
+          />
           <button
             onClick={() => setPartyType("customer")}
-            className={`rounded px-3 py-1 text-xs font-medium ${partyType === "customer" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"}`}
+            className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "customer" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
           >
             Customers
           </button>
           <button
             onClick={() => setPartyType("supplier")}
-            className={`rounded px-3 py-1 text-xs font-medium ${partyType === "supplier" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"}`}
+            className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "supplier" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
           >
             Suppliers
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
         ) : isError ? (
           <p className="p-4 text-sm text-red-600 dark:text-red-400">Failed to load the aging report. Try refreshing.</p>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <thead className={THEAD}>
               <tr>
-                <th className="px-4 py-2.5 font-medium">{partyType === "customer" ? "Customer" : "Supplier"}</th>
-                <th className="px-4 py-2.5 text-right font-medium">0–30 days</th>
-                <th className="px-4 py-2.5 text-right font-medium">31–60 days</th>
-                <th className="px-4 py-2.5 text-right font-medium">61–90 days</th>
-                <th className="px-4 py-2.5 text-right font-medium">90+ days</th>
-                <th className="px-4 py-2.5 text-right font-medium">Total</th>
+                <th className={TH}>{partyType === "customer" ? "Customer" : "Supplier"}</th>
+                <th className={`${TH} text-right`}>0–30 days</th>
+                <th className={`${TH} text-right`}>31–60 days</th>
+                <th className={`${TH} text-right`}>61–90 days</th>
+                <th className={`${TH} text-right`}>90+ days</th>
+                <th className={`${TH} text-right`}>Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {data?.map((row) => (
-                <tr key={row.partyId}>
+                <tr key={row.partyId} className={row.d90plus > 0 ? "bg-red-50/40 dark:bg-red-900/10" : undefined}>
                   <td className="px-4 py-3">
                     <Link to={`/customers/${row.partyId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                       {row.partyName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{row.current > 0 ? formatCurrency(row.current) : "—"}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{row.d31to60 > 0 ? formatCurrency(row.d31to60) : "—"}</td>
-                  <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{row.d61to90 > 0 ? formatCurrency(row.d61to90) : "—"}</td>
-                  <td className="px-4 py-3 text-right font-medium text-red-600 dark:text-red-400">{row.d90plus > 0 ? formatCurrency(row.d90plus) : "—"}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-400">{row.current > 0 ? formatCurrency(row.current) : "—"}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-400">{row.d31to60 > 0 ? formatCurrency(row.d31to60) : "—"}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{row.d61to90 > 0 ? formatCurrency(row.d61to90) : "—"}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-medium text-red-600 dark:text-red-400">{row.d90plus > 0 ? formatCurrency(row.d90plus) : "—"}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</td>
                 </tr>
               ))}
               {data?.length === 0 && (
@@ -103,7 +114,7 @@ function AgingReportSection() {
                   <td className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400" colSpan={5}>
                     Grand Total
                   </td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(grandTotal)}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(grandTotal)}</td>
                 </tr>
               </tfoot>
             )}
@@ -192,7 +203,7 @@ function ReorderSuggestionsSection() {
           </button>
         )}
       </div>
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
         ) : isError ? (
@@ -201,35 +212,35 @@ function ReorderSuggestionsSection() {
           <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Nothing below its reorder point right now.</p>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <thead className={THEAD}>
               <tr>
                 <th className="w-8 px-4 py-2.5"></th>
-                <th className="px-4 py-2.5 font-medium">Product</th>
-                <th className="px-4 py-2.5 text-right font-medium">Current</th>
-                <th className="px-4 py-2.5 text-right font-medium">Min</th>
-                <th className="px-4 py-2.5 text-right font-medium">Suggested Reorder</th>
-                <th className="px-4 py-2.5 text-right font-medium">Days of Stock Left</th>
+                <th className={TH}>Product</th>
+                <th className={`${TH} text-right`}>Current</th>
+                <th className={`${TH} text-right`}>Min</th>
+                <th className={`${TH} text-right`}>Suggested Reorder</th>
+                <th className={`${TH} text-right`}>Days of Stock Left</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {rows.map((row) => (
-                <tr key={row.productId}>
+                <tr key={row.productId} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
                   <td className="px-4 py-3">
                     <input type="checkbox" checked={selected.has(row.productId)} onChange={() => toggle(row.productId)} className="rounded" />
                   </td>
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{row.name}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-400">
                     {row.currentStock} {row.unitName}
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{row.minStock}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-500 dark:text-gray-400">{row.minStock}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">
                     {row.suggestedReorderQty} {row.unitName}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {row.daysOfStockLeft == null ? (
                       <span className="text-gray-400 dark:text-gray-500">No sales data</span>
                     ) : (
-                      <span className={row.daysOfStockLeft < 7 ? "font-medium text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"}>
+                      <span className={row.daysOfStockLeft < 7 ? "font-medium text-red-600 dark:text-red-400" : "tabular-nums text-gray-600 dark:text-gray-400"}>
                         {row.daysOfStockLeft.toFixed(1)} days
                       </span>
                     )}
@@ -256,6 +267,7 @@ export function ReportsPage() {
     d.setDate(d.getDate() - 30);
     return isoDate(d);
   });
+  const [activePreset, setActivePreset] = useState<number | null>(30);
 
   function applyPreset(days: number) {
     const to = new Date();
@@ -263,6 +275,7 @@ export function ReportsPage() {
     from.setDate(from.getDate() - days);
     setDateTo(isoDate(to));
     setDateFrom(isoDate(from));
+    setActivePreset(days);
   }
 
   const { data: trend, isLoading: trendLoading } = useQuery({
@@ -302,22 +315,27 @@ export function ReportsPage() {
 
   const topProductRows = productRows.slice(0, 10);
   const maxRevenue = Math.max(1, ...topProductRows.map((p) => p.revenue));
+  const marginPercent = profit && profit.revenue > 0 ? (profit.estimatedProfit / profit.revenue) * 100 : 0;
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Reports</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Reports</h1>
         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Sales, profit, and stock health for the selected period.</p>
       </div>
 
       {/* filter bar — one row, above everything it scopes */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map((p) => (
             <button
               key={p.days}
               onClick={() => applyPreset(p.days)}
-              className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                activePreset === p.days
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              }`}
             >
               {p.label}
             </button>
@@ -325,44 +343,76 @@ export function ReportsPage() {
         </div>
         <div className="h-5 w-px bg-gray-200 dark:bg-gray-800" />
         <div className="flex items-center gap-2 text-sm">
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={inputClass + " max-w-40"} />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              setActivePreset(null);
+            }}
+            className={inputClass + " max-w-40"}
+          />
           <span className="text-gray-400">to</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputClass + " max-w-40"} />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              setActivePreset(null);
+            }}
+            className={inputClass + " max-w-40"}
+          />
         </div>
       </div>
 
-      {/* profit KPI cards */}
+      {/* profit KPI flow — Revenue minus Cost equals Profit, shown as one connected story */}
       {profit && (
         <div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
+            <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 pl-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="absolute inset-y-0 left-0 w-1.5 bg-blue-500" />
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
                   <Wallet size={17} />
                 </div>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Revenue</p>
               </div>
-              <p className="mt-3 text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(profit.revenue)}</p>
+              <p className="mt-3 text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(profit.revenue)}</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+
+            <ArrowRight size={18} className="hidden shrink-0 text-gray-300 sm:block dark:text-gray-700" />
+
+            <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 pl-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="absolute inset-y-0 left-0 w-1.5 bg-gray-400" />
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                   <ShoppingCart size={17} />
                 </div>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Estimated Cost</p>
               </div>
-              <p className="mt-3 text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(profit.estimatedCost)}</p>
+              <p className="mt-3 text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(profit.estimatedCost)}</p>
             </div>
-            <div className="rounded-xl border border-green-200 bg-green-50/40 p-5 shadow-sm dark:border-green-900/40 dark:bg-green-900/10">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400">
-                  {profit.estimatedProfit >= 0 ? <TrendingUp size={17} /> : <TrendingDown size={17} />}
+
+            <ArrowRight size={18} className="hidden shrink-0 text-gray-300 sm:block dark:text-gray-700" />
+
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 pl-6 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-900/10">
+              <div className={`absolute inset-y-0 left-0 w-1.5 ${profit.estimatedProfit >= 0 ? "bg-emerald-500" : "bg-red-500"}`} />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
+                    {profit.estimatedProfit >= 0 ? <TrendingUp size={17} /> : <TrendingDown size={17} />}
+                  </div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Estimated Profit</p>
                 </div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Estimated Profit</p>
+                {profit.revenue > 0 && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm dark:bg-gray-900 dark:text-emerald-400">
+                    {marginPercent.toFixed(1)}%
+                  </span>
+                )}
               </div>
               <p
-                className={`mt-3 text-2xl font-semibold tabular-nums ${
-                  profit.estimatedProfit >= 0 ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                className={`mt-3 text-2xl font-bold tabular-nums ${
+                  profit.estimatedProfit >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                 }`}
               >
                 {formatCurrency(profit.estimatedProfit)}
@@ -382,7 +432,7 @@ export function ReportsPage() {
           <LineChart size={16} className="text-gray-400" />
           Sales vs Purchases
         </h2>
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {trendLoading ? <Loader /> : <SalesTrendChart data={trend ?? []} />}
         </div>
       </div>
@@ -396,24 +446,24 @@ export function ReportsPage() {
         <p className="-mt-1 mb-2 text-xs text-gray-400 dark:text-gray-500">
           Ranked by revenue. Cost and margin use each product's current purchase price, not historical cost.
         </p>
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {topProductRows.length === 0 ? (
             <p className="p-4 text-sm text-gray-500 dark:text-gray-400">No sales in this date range.</p>
           ) : (
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              <thead className={THEAD}>
                 <tr>
-                  <th className="px-4 py-2 font-medium">Product</th>
-                  <th className="px-4 py-2 font-medium">Revenue</th>
-                  <th className="px-4 py-2 text-right font-medium">Orders</th>
-                  <th className="px-4 py-2 text-right font-medium">Est. Cost</th>
-                  <th className="px-4 py-2 text-right font-medium">Est. Profit</th>
-                  <th className="px-4 py-2 text-right font-medium">Margin</th>
+                  <th className={TH}>Product</th>
+                  <th className={TH}>Revenue</th>
+                  <th className={`${TH} text-right`}>Orders</th>
+                  <th className={`${TH} text-right`}>Est. Cost</th>
+                  <th className={`${TH} text-right`}>Est. Profit</th>
+                  <th className={`${TH} text-right`}>Margin</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {topProductRows.map((p) => (
-                  <tr key={p.productId}>
+                  <tr key={p.productId} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
                     <td className="max-w-40 truncate px-4 py-2.5 text-gray-900 dark:text-gray-100" title={p.name}>
                       {p.name}
                     </td>
@@ -432,7 +482,7 @@ export function ReportsPage() {
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-400">{formatCurrency(p.estimatedCost)}</td>
                     <td
                       className={`px-4 py-2.5 text-right font-medium tabular-nums ${
-                        p.estimatedProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                        p.estimatedProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                       }`}
                     >
                       {formatCurrency(p.estimatedProfit)}
