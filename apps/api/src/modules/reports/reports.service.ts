@@ -3,6 +3,7 @@ import { db } from "../../db/index.js";
 import {
   invoiceItems,
   invoices,
+  ledgerEntries,
   parties,
   payments,
   productStock,
@@ -278,6 +279,67 @@ export async function getAgingReport(tenantId: string, partyType: "customer" | "
   }
 
   return [...byParty.values()].sort((a, b) => b.total - a.total);
+}
+
+export type PartyLedgerSummaryRow = {
+  partyId: string;
+  partyName: string;
+  phone: string | null;
+  openingBalance: number;
+  periodTaken: number;
+  periodPaid: number;
+  closingBalance: number;
+};
+
+/**
+ * The "hard copy for my records" report: for every customer/supplier, what they owed
+ * coming into the period (openingBalance), how much was billed to them in the period
+ * (periodTaken), how much they paid/were paid in the period (periodPaid), and where that
+ * leaves them (closingBalance). All four numbers come from ledger_entries — the exact
+ * same rows that drive cachedBalance and the Ledger page — so this can never disagree
+ * with what those show; it's just a period slice of the same history.
+ */
+export async function getPartyLedgerSummary(
+  tenantId: string,
+  partyType: "customer" | "supplier",
+  dateFrom: Date,
+  dateTo: Date,
+): Promise<PartyLedgerSummaryRow[]> {
+  const rows = await db
+    .select({
+      partyId: parties.id,
+      partyName: parties.name,
+      phone: parties.phone,
+      openingBalance: sql<string>`coalesce(sum(case when ${ledgerEntries.createdAt} < ${dateFrom}
+        then (case when ${ledgerEntries.direction} = 'debit' then ${ledgerEntries.amount} else -${ledgerEntries.amount} end)
+        else 0 end), 0)`,
+      periodTaken: sql<string>`coalesce(sum(case when ${ledgerEntries.createdAt} >= ${dateFrom} and ${ledgerEntries.createdAt} <= ${dateTo} and ${ledgerEntries.direction} = 'debit'
+        then ${ledgerEntries.amount} else 0 end), 0)`,
+      periodPaid: sql<string>`coalesce(sum(case when ${ledgerEntries.createdAt} >= ${dateFrom} and ${ledgerEntries.createdAt} <= ${dateTo} and ${ledgerEntries.direction} = 'credit'
+        then ${ledgerEntries.amount} else 0 end), 0)`,
+    })
+    .from(parties)
+    .innerJoin(ledgerEntries, eq(ledgerEntries.partyId, parties.id))
+    .where(and(eq(parties.tenantId, tenantId), eq(parties.type, partyType), lte(ledgerEntries.createdAt, dateTo)))
+    .groupBy(parties.id, parties.name, parties.phone);
+
+  return rows
+    .map((r) => {
+      const openingBalance = Number(r.openingBalance);
+      const periodTaken = Number(r.periodTaken);
+      const periodPaid = Number(r.periodPaid);
+      return {
+        partyId: r.partyId,
+        partyName: r.partyName,
+        phone: r.phone,
+        openingBalance,
+        periodTaken,
+        periodPaid,
+        closingBalance: openingBalance + periodTaken - periodPaid,
+      };
+    })
+    .filter((r) => Math.abs(r.openingBalance) > 0.009 || r.periodTaken > 0.009 || r.periodPaid > 0.009)
+    .sort((a, b) => b.closingBalance - a.closingBalance);
 }
 
 export type ReorderSuggestion = {

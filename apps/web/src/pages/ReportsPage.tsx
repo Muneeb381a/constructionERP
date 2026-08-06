@@ -1,17 +1,37 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BarChart3, Clock3, LineChart, PackageSearch, ShoppingCart, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowRight, BarChart3, Clock3, Download, FileText, LineChart, PackageSearch, ShoppingCart, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { SalesTrendChart } from "../components/SalesTrendChart";
 import { Loader } from "../components/Loader";
 import { Modal } from "../components/Modal";
 import { PartyPicker } from "../components/PartyPicker";
 import { inputClass } from "../lib/formStyles";
 import { formatCurrency } from "../lib/format";
+import { axiosErrorMessage } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
-import { getAgingReport, getProfitByProduct, getProfitSummary, getReorderSuggestions, getSalesTrend, getTopProducts } from "../lib/api/reports";
+import {
+  downloadBusinessSummaryPdf,
+  downloadPartyLedgerSummaryPdf,
+  getAgingReport,
+  getPartyLedgerSummary,
+  getProfitByProduct,
+  getProfitSummary,
+  getReorderSuggestions,
+  getSalesTrend,
+  getTopProducts,
+} from "../lib/api/reports";
 import type { Party } from "../lib/api/parties";
 import type { ReorderState } from "./PurchaseInvoicePage";
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 function marginBadgeClass(margin: number) {
   if (margin < 0) return "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300";
@@ -24,6 +44,7 @@ function isoDate(d: Date) {
 }
 
 const PRESETS = [
+  { label: "Today", days: 0 },
   { label: "Last 7 days", days: 7 },
   { label: "Last 30 days", days: 30 },
   { label: "Last 90 days", days: 90 },
@@ -115,6 +136,146 @@ function AgingReportSection() {
                     Grand Total
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(grandTotal)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PartyLedgerReportSection({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
+  const [partyType, setPartyType] = useState<"customer" | "supplier">("customer");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["reports-party-ledger-summary", partyType, dateFrom, dateTo],
+    queryFn: () => getPartyLedgerSummary(partyType, dateFrom, dateTo),
+  });
+
+  const takenLabel = partyType === "supplier" ? "Received" : "Taken";
+  const paidLabel = partyType === "supplier" ? "Paid" : "Received";
+  const rows = data ?? [];
+  const totals = rows.reduce(
+    (acc, r) => ({
+      opening: acc.opening + r.openingBalance,
+      taken: acc.taken + r.periodTaken,
+      paid: acc.paid + r.periodPaid,
+      closing: acc.closing + r.closingBalance,
+    }),
+    { opening: 0, taken: 0, paid: 0, closing: 0 },
+  );
+
+  async function handleDownload() {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const blob = await downloadPartyLedgerSummaryPdf(partyType, dateFrom, dateTo);
+      downloadBlob(blob, `${partyType}-ledger-report_${dateFrom}_to_${dateTo}.pdf`);
+    } catch (err) {
+      setDownloadError(axiosErrorMessage(err) ?? "Failed to generate report");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <FileText size={16} className="text-gray-400" />
+          Customer / Supplier Ledger Report
+        </h2>
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center rounded-full bg-gray-100 p-0.5 dark:bg-gray-800">
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0.5 w-[calc(50%-2px)] rounded-full bg-blue-600 shadow-sm transition-transform duration-200 ease-out"
+              style={{ transform: partyType === "supplier" ? "translateX(calc(100% + 4px))" : "translateX(0)" }}
+            />
+            <button
+              onClick={() => setPartyType("customer")}
+              className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "customer" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
+            >
+              Customers
+            </button>
+            <button
+              onClick={() => setPartyType("supplier")}
+              className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "supplier" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
+            >
+              Suppliers
+            </button>
+          </div>
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Download size={13} />
+            {downloading ? "Preparing…" : "Download PDF"}
+          </button>
+        </div>
+      </div>
+      <p className="-mt-1 mb-2 text-xs text-gray-400 dark:text-gray-500">
+        Opening balance is what they owed before this period started; {takenLabel.toLowerCase()} and {paidLabel.toLowerCase()} are within
+        the selected dates — same numbers as the Ledger page, just totaled for record-keeping.
+      </p>
+      {downloadError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{downloadError}</p>}
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        {isLoading ? (
+          <Loader />
+        ) : isError ? (
+          <p className="p-4 text-sm text-red-600 dark:text-red-400">Failed to load this report. Try refreshing.</p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead className={THEAD}>
+              <tr>
+                <th className={TH}>{partyType === "customer" ? "Customer" : "Supplier"}</th>
+                <th className={`${TH} text-right`}>Opening</th>
+                <th className={`${TH} text-right`}>{takenLabel}</th>
+                <th className={`${TH} text-right`}>{paidLabel}</th>
+                <th className={`${TH} text-right`}>Closing</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {rows.map((row) => (
+                <tr key={row.partyId} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                  <td className="px-4 py-3">
+                    <Link to={`/customers/${row.partyId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                      {row.partyName}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-400">{formatCurrency(row.openingBalance)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-400">{formatCurrency(row.periodTaken)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-400">{formatCurrency(row.periodPaid)}</td>
+                  <td
+                    className={`px-4 py-3 text-right font-semibold tabular-nums ${
+                      row.closingBalance > 0.01 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-gray-100"
+                    }`}
+                  >
+                    {formatCurrency(row.closingBalance)}
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                    No activity in this period.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {rows.length > 0 && (
+              <tfoot>
+                <tr className="border-t border-gray-200 dark:border-gray-800">
+                  <td className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400">Total</td>
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totals.opening)}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totals.taken)}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totals.paid)}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totals.closing)}</td>
                 </tr>
               </tfoot>
             )}
@@ -268,6 +429,8 @@ export function ReportsPage() {
     return isoDate(d);
   });
   const [activePreset, setActivePreset] = useState<number | null>(30);
+  const [downloadingSummary, setDownloadingSummary] = useState(false);
+  const [downloadSummaryError, setDownloadSummaryError] = useState<string | null>(null);
 
   function applyPreset(days: number) {
     const to = new Date();
@@ -317,6 +480,19 @@ export function ReportsPage() {
   const maxRevenue = Math.max(1, ...topProductRows.map((p) => p.revenue));
   const marginPercent = profit && profit.revenue > 0 ? (profit.estimatedProfit / profit.revenue) * 100 : 0;
 
+  async function handleDownloadSummary() {
+    setDownloadingSummary(true);
+    setDownloadSummaryError(null);
+    try {
+      const blob = await downloadBusinessSummaryPdf(dateFrom, dateTo);
+      downloadBlob(blob, `business-summary_${dateFrom}_to_${dateTo}.pdf`);
+    } catch (err) {
+      setDownloadSummaryError(axiosErrorMessage(err) ?? "Failed to generate report");
+    } finally {
+      setDownloadingSummary(false);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -362,6 +538,17 @@ export function ReportsPage() {
             }}
             className={inputClass + " max-w-40"}
           />
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {downloadSummaryError && <p className="text-xs text-red-600 dark:text-red-400">{downloadSummaryError}</p>}
+          <button
+            onClick={handleDownloadSummary}
+            disabled={downloadingSummary}
+            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Download size={13} />
+            {downloadingSummary ? "Preparing…" : "Download Report (PDF)"}
+          </button>
         </div>
       </div>
 
@@ -504,6 +691,9 @@ export function ReportsPage() {
           )}
         </div>
       </div>
+
+      {/* customer/supplier ledger report — downloadable, scoped to the same period as everything above */}
+      <PartyLedgerReportSection dateFrom={dateFrom} dateTo={dateTo} />
 
       {/* udhaar aging */}
       <AgingReportSection />

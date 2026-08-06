@@ -14,3 +14,6 @@ reportsRoutes.get("/profit-summary", reportsController.profitSummary);
 reportsRoutes.get("/profit-by-product", reportsController.profitByProduct);
 reportsRoutes.get("/aging", reportsController.agingReport);
 reportsRoutes.get("/reorder-suggestions", reportsController.reorderSuggestions);
+reportsRoutes.get("/party-ledger-summary", reportsController.partyLedgerSummary);
+reportsRoutes.get("/summary.pdf", reportsController.businessSummaryPdf);
+reportsRoutes.get("/party-ledger-summary.pdf", reportsController.partyLedgerSummaryPdf);

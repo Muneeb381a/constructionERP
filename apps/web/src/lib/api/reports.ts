@@ -84,3 +84,28 @@ export async function getReorderSuggestions() {
   const res = await apiClient.get<ReorderSuggestion[]>("/reports/reorder-suggestions");
   return res.data;
 }
+
+export type PartyLedgerSummaryRow = {
+  partyId: string;
+  partyName: string;
+  phone: string | null;
+  openingBalance: number;
+  periodTaken: number;
+  periodPaid: number;
+  closingBalance: number;
+};
+
+export async function getPartyLedgerSummary(partyType: "customer" | "supplier", dateFrom: string, dateTo: string) {
+  const res = await apiClient.get<PartyLedgerSummaryRow[]>("/reports/party-ledger-summary", { params: { partyType, dateFrom, dateTo } });
+  return res.data;
+}
+
+export async function downloadBusinessSummaryPdf(dateFrom: string, dateTo: string) {
+  const res = await apiClient.get("/reports/summary.pdf", { params: { dateFrom, dateTo }, responseType: "blob" });
+  return res.data as Blob;
+}
+
+export async function downloadPartyLedgerSummaryPdf(partyType: "customer" | "supplier", dateFrom: string, dateTo: string) {
+  const res = await apiClient.get("/reports/party-ledger-summary.pdf", { params: { partyType, dateFrom, dateTo }, responseType: "blob" });
+  return res.data as Blob;
+}
