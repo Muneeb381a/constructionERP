@@ -203,9 +203,39 @@ export type AgingRow = {
  * Buckets each party's still-unpaid bills by age (0-30 / 31-60 / 61-90 / 90+ days), the
  * same balance-per-bill math as payments.service.ts's listBillsForParty but computed
  * tenant-wide in one pass instead of per-party, so a shop can see who to chase first.
+ *
+ * Bills aren't the only thing that can put a balance on a party — an opening balance
+ * (migrating in an existing customer/supplier) or a manual adjustment posts straight to
+ * the ledger with no invoice behind it at all. Those used to be invisible here: this
+ * report only ever scanned `invoices`, so a party whose entire balance came from an
+ * opening balance/adjustment had a real cachedBalance but showed nothing on the Ledger
+ * page, no reminder eligibility, and didn't count toward its "total owed" figure — a
+ * real mismatch between what a party's own page showed and what this report showed. Each
+ * row's `total` is now always set to the party's actual cachedBalance (never re-summed
+ * from buckets), so this can never disagree with anything else in the app; any portion
+ * not explained by an unpaid bill is bucketed by the age of the underlying ledger entry.
  */
 export async function getAgingReport(tenantId: string, partyType: "customer" | "supplier"): Promise<AgingRow[]> {
   const billType = partyType === "supplier" ? "purchase" : "sale";
+  const now = Date.now();
+
+  function bucketFor(row: AgingRow, ageDays: number, amount: number) {
+    if (ageDays <= 30) row.current += amount;
+    else if (ageDays <= 60) row.d31to60 += amount;
+    else if (ageDays <= 90) row.d61to90 += amount;
+    else row.d90plus += amount;
+  }
+
+  const byParty = new Map<string, AgingRow>();
+
+  function getOrCreateRow(partyId: string, partyName: string, phone: string | null, lastReminderSentAt: Date | null) {
+    let row = byParty.get(partyId);
+    if (!row) {
+      row = { partyId, partyName, phone, lastReminderSentAt, current: 0, d31to60: 0, d61to90: 0, d90plus: 0, total: 0 };
+      byParty.set(partyId, row);
+    }
+    return row;
+  }
 
   const billInvoices = await db
     .select({
@@ -221,64 +251,101 @@ export async function getAgingReport(tenantId: string, partyType: "customer" | "
     .innerJoin(parties, eq(parties.id, invoices.partyId))
     .where(and(eq(invoices.tenantId, tenantId), eq(invoices.type, billType), ne(invoices.status, "void"), eq(parties.type, partyType)));
 
-  if (billInvoices.length === 0) return [];
-  const billIds = billInvoices.map((b) => b.id);
+  if (billInvoices.length > 0) {
+    const billIds = billInvoices.map((b) => b.id);
 
-  const returnRows = await db
-    .select({ originalInvoiceId: invoices.originalInvoiceId, totalAmount: invoices.totalAmount })
-    .from(invoices)
-    .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.originalInvoiceId, billIds), ne(invoices.status, "void")));
+    const returnRows = await db
+      .select({ originalInvoiceId: invoices.originalInvoiceId, totalAmount: invoices.totalAmount })
+      .from(invoices)
+      .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.originalInvoiceId, billIds), ne(invoices.status, "void")));
 
-  const paymentRows = await db
-    .select({ invoiceId: payments.invoiceId, amount: payments.amount })
-    .from(payments)
-    .where(and(eq(payments.tenantId, tenantId), inArray(payments.invoiceId, billIds)));
+    const paymentRows = await db
+      .select({ invoiceId: payments.invoiceId, amount: payments.amount })
+      .from(payments)
+      .where(and(eq(payments.tenantId, tenantId), inArray(payments.invoiceId, billIds)));
 
-  const returnsByInvoice = new Map<string, number>();
-  for (const r of returnRows) {
-    if (!r.originalInvoiceId) continue;
-    returnsByInvoice.set(r.originalInvoiceId, (returnsByInvoice.get(r.originalInvoiceId) ?? 0) + Number(r.totalAmount));
+    const returnsByInvoice = new Map<string, number>();
+    for (const r of returnRows) {
+      if (!r.originalInvoiceId) continue;
+      returnsByInvoice.set(r.originalInvoiceId, (returnsByInvoice.get(r.originalInvoiceId) ?? 0) + Number(r.totalAmount));
+    }
+
+    const paidByInvoice = new Map<string, number>();
+    for (const p of paymentRows) {
+      if (!p.invoiceId) continue;
+      paidByInvoice.set(p.invoiceId, (paidByInvoice.get(p.invoiceId) ?? 0) + Number(p.amount));
+    }
+
+    for (const inv of billInvoices) {
+      if (!inv.partyId) continue;
+      const returnsTotal = returnsByInvoice.get(inv.id) ?? 0;
+      const paidTotal = paidByInvoice.get(inv.id) ?? 0;
+      const balanceDue = Number(inv.totalAmount) - returnsTotal - paidTotal;
+      if (balanceDue <= 0.01) continue;
+
+      const ageDays = Math.floor((now - new Date(inv.createdAt!).getTime()) / 86_400_000);
+      const row = getOrCreateRow(inv.partyId, inv.partyName, inv.phone, inv.lastReminderSentAt);
+      bucketFor(row, ageDays, balanceDue);
+    }
   }
 
-  const paidByInvoice = new Map<string, number>();
-  for (const p of paymentRows) {
-    if (!p.invoiceId) continue;
-    paidByInvoice.set(p.invoiceId, (paidByInvoice.get(p.invoiceId) ?? 0) + Number(p.amount));
+  // Non-invoice ledger activity (opening balances, manual adjustments) — bucketed by
+  // that entry's own age, most recent first per party, and reconciled against
+  // cachedBalance below so the total is always exactly right even if bucketing a
+  // multi-entry history isn't perfectly precise.
+  const nonInvoiceEntries = await db
+    .select({
+      partyId: ledgerEntries.partyId,
+      direction: ledgerEntries.direction,
+      amount: ledgerEntries.amount,
+      createdAt: ledgerEntries.createdAt,
+      partyName: parties.name,
+      phone: parties.phone,
+      lastReminderSentAt: parties.lastReminderSentAt,
+    })
+    .from(ledgerEntries)
+    .innerJoin(parties, eq(parties.id, ledgerEntries.partyId))
+    .where(
+      and(
+        eq(ledgerEntries.tenantId, tenantId),
+        eq(parties.type, partyType),
+        inArray(ledgerEntries.sourceType, ["opening_balance", "adjustment", "correction"]),
+      ),
+    );
+
+  for (const entry of nonInvoiceEntries) {
+    const signed = entry.direction === "debit" ? Number(entry.amount) : -Number(entry.amount);
+    if (signed <= 0) continue; // a credit-only adjustment reduces what's owed, not a new "outstanding" item to chase
+    const ageDays = Math.floor((now - new Date(entry.createdAt!).getTime()) / 86_400_000);
+    const row = getOrCreateRow(entry.partyId, entry.partyName, entry.phone, entry.lastReminderSentAt);
+    bucketFor(row, ageDays, signed);
   }
 
-  const byParty = new Map<string, AgingRow>();
-  const now = Date.now();
+  if (byParty.size === 0) return [];
 
-  for (const inv of billInvoices) {
-    if (!inv.partyId) continue;
-    const returnsTotal = returnsByInvoice.get(inv.id) ?? 0;
-    const paidTotal = paidByInvoice.get(inv.id) ?? 0;
-    const balanceDue = Number(inv.totalAmount) - returnsTotal - paidTotal;
-    if (balanceDue <= 0.01) continue;
+  // Reconcile every row's total against the party's real cachedBalance — the
+  // authoritative figure everywhere else in the app (party page, party list, Ledger
+  // page total) — so bucketing detail can never cause this report's grand total to
+  // drift from what a party's own balance actually is.
+  const partyIds = [...byParty.keys()];
+  const currentBalances = await db
+    .select({ id: parties.id, cachedBalance: parties.cachedBalance })
+    .from(parties)
+    .where(inArray(parties.id, partyIds));
+  const balanceByParty = new Map(currentBalances.map((p) => [p.id, Number(p.cachedBalance)]));
 
-    const ageDays = Math.floor((now - new Date(inv.createdAt!).getTime()) / 86_400_000);
-    const row = byParty.get(inv.partyId) ?? {
-      partyId: inv.partyId,
-      partyName: inv.partyName,
-      phone: inv.phone,
-      lastReminderSentAt: inv.lastReminderSentAt,
-      current: 0,
-      d31to60: 0,
-      d61to90: 0,
-      d90plus: 0,
-      total: 0,
-    };
-
-    if (ageDays <= 30) row.current += balanceDue;
-    else if (ageDays <= 60) row.d31to60 += balanceDue;
-    else if (ageDays <= 90) row.d61to90 += balanceDue;
-    else row.d90plus += balanceDue;
-    row.total += balanceDue;
-
-    byParty.set(inv.partyId, row);
+  for (const row of byParty.values()) {
+    const trueBalance = balanceByParty.get(row.partyId) ?? row.total;
+    const bucketed = row.current + row.d31to60 + row.d61to90 + row.d90plus;
+    const drift = trueBalance - bucketed;
+    // Absorb any small drift (a credit reducing an older bucket below what invoices
+    // alone would show, timing edge cases, etc.) into the current bucket rather than
+    // ever showing a number this report can't otherwise explain.
+    if (Math.abs(drift) > 0.009) row.current += drift;
+    row.total = trueBalance;
   }
 
-  return [...byParty.values()].sort((a, b) => b.total - a.total);
+  return [...byParty.values()].filter((r) => r.total > 0.01).sort((a, b) => b.total - a.total);
 }
 
 export type PartyLedgerSummaryRow = {
