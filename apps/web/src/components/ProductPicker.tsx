@@ -14,10 +14,12 @@ export function ProductPicker({
   const [search, setSearch] = useState(initialSearch ?? "");
   const [open, setOpen] = useState(false);
 
+  // Fetches as soon as the field is focused, not only once the user starts typing —
+  // clicking in should immediately show a pickable dropdown, narrowed by typing.
   const { data } = useQuery({
     queryKey: ["product-search", search],
-    queryFn: () => listProducts({ search }),
-    enabled: search.length > 0,
+    queryFn: () => listProducts({ search: search || undefined }),
+    enabled: open,
   });
 
   return (
@@ -33,8 +35,13 @@ export function ProductPicker({
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         className={inputClass}
       />
-      {open && search && data && (
+      {open && data && (
         <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+          {!search && (
+            <li className="border-b border-gray-100 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:border-gray-700 dark:text-gray-500">
+              Products
+            </li>
+          )}
           {data.data.length === 0 && <li className="px-3 py-2 text-sm text-gray-400">No matching products</li>}
           {data.data.map((p) => (
             <li key={p.id}>

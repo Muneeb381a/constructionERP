@@ -95,10 +95,13 @@ export function PartyPicker({
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
 
+  // Fetches as soon as the field is focused, not only once the user starts typing —
+  // clicking in should immediately show a pickable dropdown (recent parties by default,
+  // narrowed by typing), not an empty box until you type the first character.
   const { data } = useQuery({
     queryKey: ["party-search", type, search],
-    queryFn: () => listParties({ search, type }),
-    enabled: search.length > 0,
+    queryFn: () => listParties({ search: search || undefined, type }),
+    enabled: open,
   });
 
   if (selected) {
@@ -138,7 +141,7 @@ export function PartyPicker({
         }}
         className={inputClass}
       />
-      {open && search && data && (
+      {open && data && (
         <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {adding ? (
             <QuickAddForm
@@ -154,6 +157,11 @@ export function PartyPicker({
             />
           ) : (
             <>
+              {!search && (
+                <p className="border-b border-gray-100 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:border-gray-700 dark:text-gray-500">
+                  Recent {type}s
+                </p>
+              )}
               <ul className="max-h-52 overflow-auto">
                 {data.data.length === 0 && <li className="px-3 py-2 text-sm text-gray-400">No matching {type}s</li>}
                 {data.data.map((party) => (
@@ -173,15 +181,17 @@ export function PartyPicker({
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setAdding(true)}
-                className="flex w-full items-center gap-2 border-t border-gray-100 px-3 py-2 text-left text-sm font-medium text-blue-600 hover:bg-blue-50 dark:border-gray-700 dark:text-blue-400 dark:hover:bg-gray-700"
-              >
-                <UserPlus size={15} />
-                Add "{search}" as new {type}
-              </button>
+              {search && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setAdding(true)}
+                  className="flex w-full items-center gap-2 border-t border-gray-100 px-3 py-2 text-left text-sm font-medium text-blue-600 hover:bg-blue-50 dark:border-gray-700 dark:text-blue-400 dark:hover:bg-gray-700"
+                >
+                  <UserPlus size={15} />
+                  Add "{search}" as new {type}
+                </button>
+              )}
             </>
           )}
         </div>
