@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
+import { CheckCircle2, PackagePlus, Receipt, Truck } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
@@ -116,20 +117,26 @@ export function PurchaseInvoicePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Purchase</h1>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">New Purchase</h1>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Record a supplier bill, then complete it below.</p>
+      </div>
 
       {reorderLoading && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
           Loading reorder items — prices are refreshed to today's rates…
         </div>
       )}
 
       {successInvoiceNo && (
-        <div className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
+        <div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
           <div className="flex items-center justify-between gap-3">
-            <span>
-              Purchase invoice {successInvoiceNo} created.
-              {printBlocked && " Your browser blocked the automatic print tab — use the button below."}
+            <span className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                Purchase invoice {successInvoiceNo} created.
+                {printBlocked && " Your browser blocked the automatic print tab — use the button below."}
+              </span>
             </span>
             <div className="flex shrink-0 items-center gap-3">
               <button
@@ -154,70 +161,95 @@ export function PurchaseInvoicePage() {
         </div>
       )}
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Supplier</label>
-        <PartyPicker
-          type="supplier"
-          placeholder="Search supplier (optional for a cash purchase)…"
-          selected={party}
-          onSelect={setParty}
-          onClear={() => setParty(null)}
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Add Item</label>
-        <ProductPicker onSelect={addProduct} />
-      </div>
-
-      <CartTable cart={cart} onUpdate={updateItem} onRemove={removeItem} />
-
-      <div className="flex justify-end">
-        <div className="w-full max-w-xs space-y-2 text-sm">
-          <div className="flex justify-between text-gray-600 dark:text-gray-400">
-            <span>Subtotal</span>
-            <span>{formatCurrency(subtotal)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="text-gray-600 dark:text-gray-400">Discount</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={discount}
-              onChange={(e) => setDiscount(Math.min(subtotal, Math.max(0, Number(e.target.value))))}
-              className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <section className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-orange-500" />
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-500/10">
+                <Truck size={14} className="text-orange-600 dark:text-orange-400" />
+              </span>
+              Supplier
+            </h2>
+            <PartyPicker
+              type="supplier"
+              placeholder="Search supplier (optional for a cash purchase)…"
+              selected={party}
+              onSelect={setParty}
+              onClear={() => setParty(null)}
             />
-          </div>
+          </section>
 
-          <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-              Loader / Rolly / Other Charges
-            </p>
-            <ChargesEditor charges={charges} onChange={setCharges} />
-          </div>
+          <section className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-amber-500" />
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/10">
+                <PackagePlus size={14} className="text-amber-600 dark:text-amber-400" />
+              </span>
+              Items
+            </h2>
+            <ProductPicker onSelect={addProduct} />
+            <div className="mt-3">
+              <CartTable cart={cart} onUpdate={updateItem} onRemove={removeItem} />
+            </div>
+          </section>
+        </div>
 
-          <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
-            <span>Total</span>
-            <span>{formatCurrency(total)}</span>
+        <div className="lg:col-span-1">
+          <div className="sticky top-6 space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+                <Receipt size={14} className="text-gray-500 dark:text-gray-400" />
+              </span>
+              Order Summary
+            </h2>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-gray-600 dark:text-gray-400">Discount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={discount}
+                  onChange={(e) => setDiscount(Math.min(subtotal, Math.max(0, Number(e.target.value))))}
+                  className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                Loader / Rolly / Other Charges
+              </p>
+              <ChargesEditor charges={charges} onChange={setCharges} />
+            </div>
+
+            <div className="flex items-baseline justify-between rounded-xl border-l-4 border-amber-500 bg-amber-50 px-4 py-3 dark:bg-amber-500/10">
+              <span className="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">Total</span>
+              <span className="text-2xl font-extrabold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(total)}</span>
+            </div>
+
+            {submitError && (
+              <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                <p>{submitError}</p>
+              </div>
+            )}
+
+            <button
+              onClick={submit}
+              disabled={cart.length === 0 || !shop.warehouseId || mutation.isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
+            >
+              <Truck size={16} />
+              {mutation.isPending ? "Saving…" : `Complete Purchase · ${formatCurrency(total)}`}
+            </button>
           </div>
         </div>
-      </div>
-
-      {submitError && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
-          <p>{submitError}</p>
-        </div>
-      )}
-
-      <div className="flex justify-end">
-        <button
-          onClick={submit}
-          disabled={cart.length === 0 || !shop.warehouseId || mutation.isPending}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {mutation.isPending ? "Saving…" : "Complete Purchase"}
-        </button>
       </div>
     </div>
   );

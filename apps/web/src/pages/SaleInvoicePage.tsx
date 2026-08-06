@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CloudOff, FileDown, RefreshCw, Truck, User, PackagePlus, Receipt, Banknote } from "lucide-react";
+import { CheckCircle2, CloudOff, FileDown, RefreshCw, ShoppingCart, Truck, User, PackagePlus, Receipt, Banknote } from "lucide-react";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
@@ -236,9 +236,12 @@ export function SaleInvoicePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Sale</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">New Sale</h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Build the bill, then complete it below.</p>
+        </div>
         {(!offlineSync.isOnline || offlineSync.queued.length > 0) && (
-          <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+          <div className="flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
             <CloudOff size={14} />
             <span>
               {!offlineSync.isOnline ? "Offline" : "Back online"}
@@ -248,7 +251,7 @@ export function SaleInvoicePage() {
               <button
                 onClick={() => offlineSync.sync()}
                 disabled={offlineSync.syncing}
-                className="flex items-center gap-1 rounded border border-amber-400 px-1.5 py-0.5 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:hover:bg-amber-900/50"
+                className="flex items-center gap-1 rounded-full border border-amber-400 px-2 py-0.5 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:hover:bg-amber-900/50"
               >
                 <RefreshCw size={11} className={offlineSync.syncing ? "animate-spin" : ""} />
                 {offlineSync.syncing ? "Syncing…" : "Sync now"}
@@ -259,13 +262,13 @@ export function SaleInvoicePage() {
       </div>
 
       {repeatOrderLoading && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
           Loading their last order — prices are refreshed to today's rates…
         </div>
       )}
 
       {queuedOffline && (
-        <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+        <div className="flex items-center justify-between rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
           <span>No connection — sale saved on this device and will sync automatically once you're back online.</span>
           <button onClick={() => setQueuedOffline(false)} className="font-medium hover:underline">
             Dismiss
@@ -274,10 +277,13 @@ export function SaleInvoicePage() {
       )}
 
       {successMessage && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
-          <span>
-            {successMessage}
-            {printBlocked && " Your browser blocked the automatic print tab — use the button below."}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span>
+              {successMessage}
+              {printBlocked && " Your browser blocked the automatic print tab — use the button below."}
+            </span>
           </span>
           <div className="flex shrink-0 items-center gap-3">
             <button
@@ -314,9 +320,12 @@ export function SaleInvoicePage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              <User size={16} className="text-gray-400" />
+          <section className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-blue-500" />
+            <h2 className="mb-3 flex items-center gap-2 pl-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+                <User size={14} className="text-blue-600 dark:text-blue-400" />
+              </span>
               Customer
             </h2>
             {!party && topCustomers && topCustomers.length > 0 && (
@@ -365,13 +374,16 @@ export function SaleInvoicePage() {
             )}
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+          <section className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-amber-500" />
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              <PackagePlus size={16} className="text-gray-400" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/10">
+                <PackagePlus size={14} className="text-amber-600 dark:text-amber-400" />
+              </span>
               Items
             </h2>
             {activeRateLocks && activeRateLocks.length > 0 && (
-              <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                 🔒 {activeRateLocks.length} rate-locked price{activeRateLocks.length === 1 ? "" : "s"} active for this
                 customer — applied automatically when added.
               </div>
@@ -382,10 +394,13 @@ export function SaleInvoicePage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+          <section className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-orange-500" />
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              <Truck size={16} className="text-gray-400" />
-              Delivery (optional)
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-500/10">
+                <Truck size={14} className="text-orange-600 dark:text-orange-400" />
+              </span>
+              Delivery <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
             </h2>
             <select value={deliveryEmployeeId} onChange={(e) => setDeliveryEmployeeId(e.target.value)} className={inputClass}>
               <option value="">Customer picking up — no delivery</option>
@@ -403,16 +418,18 @@ export function SaleInvoicePage() {
         </div>
 
         <div className="lg:col-span-1">
-          <div className="sticky top-6 space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="sticky top-6 space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              <Receipt size={16} className="text-gray-400" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+                <Receipt size={14} className="text-gray-500 dark:text-gray-400" />
+              </span>
               Order Summary
             </h2>
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
+                <span className="tabular-nums">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <label className="text-gray-600 dark:text-gray-400">Discount</label>
@@ -434,13 +451,13 @@ export function SaleInvoicePage() {
               <ChargesEditor charges={charges} onChange={setCharges} />
             </div>
 
-            <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
-              <span>Total</span>
-              <span>{formatCurrency(total)}</span>
+            <div className="flex items-baseline justify-between rounded-xl border-l-4 border-amber-500 bg-amber-50 px-4 py-3 dark:bg-amber-500/10">
+              <span className="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">Total</span>
+              <span className="text-2xl font-extrabold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(total)}</span>
             </div>
 
             {party && total > 0 && (
-              <div className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+              <div className="space-y-2 rounded-xl border border-gray-200 p-3 dark:border-gray-800">
                 <div className="flex items-center justify-between">
                   <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                     <Banknote size={13} />
@@ -487,7 +504,7 @@ export function SaleInvoicePage() {
             )}
 
             {submitError && (
-              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+              <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
                 <p>{submitError}</p>
                 {canOverride && (
                   <button
@@ -503,8 +520,9 @@ export function SaleInvoicePage() {
             <button
               onClick={() => submit(false)}
               disabled={cart.length === 0 || !shop.warehouseId || mutation.isPending}
-              className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:opacity-50"
             >
+              <ShoppingCart size={16} />
               {mutation.isPending ? "Saving…" : `Complete Sale · ${formatCurrency(total)}`}
             </button>
           </div>
