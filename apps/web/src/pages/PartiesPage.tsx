@@ -11,6 +11,7 @@ import { formatCurrency } from "../lib/format";
 import { useSendReminder } from "../hooks/useSendReminder";
 import { useAuthStore } from "../store/authStore";
 import { createParty, deleteParty, listParties, updateParty, type Party, type PartyInput } from "../lib/api/parties";
+import { postLedgerAdjustment } from "../lib/api/ledger";
 
 const emptyForm: PartyInput = { type: "customer", name: "", phone: "", cnic: "", address: "", creditLimit: 0 };
 
@@ -48,10 +49,13 @@ function FieldWithIcon({ icon: Icon, children }: { icon: ComponentType<{ size?: 
   );
 }
 
+export type BalanceAdjustment = { idempotencyKey: string; direction: "debit" | "credit"; amount: number };
+
 function PartyForm({
   initial,
   isEdit,
   canSetCreditLimit,
+  currentBalance,
   onSubmit,
   onCancel,
   submitting,
@@ -60,7 +64,8 @@ function PartyForm({
   initial: PartyInput;
   isEdit: boolean;
   canSetCreditLimit: boolean;
-  onSubmit: (input: PartyInput) => void;
+  currentBalance?: number;
+  onSubmit: (input: PartyInput, balanceAdjustment?: BalanceAdjustment) => void;
   onCancel: () => void;
   submitting: boolean;
   error: string | null;
@@ -68,15 +73,28 @@ function PartyForm({
   const [form, setForm] = useState(initial);
   const [openingAmount, setOpeningAmount] = useState(0);
   const [openingDirection, setOpeningDirection] = useState<"debit" | "credit">("debit");
+  const [newBalance, setNewBalance] = useState(currentBalance ?? 0);
+  // Stable for the lifetime of this open modal (including retries after a failed save) —
+  // never regenerated per submit, so a retry can't double-post the same correction.
+  const [adjustmentKey] = useState(() => crypto.randomUUID());
+
+  const balanceDelta = Math.round((newBalance - (currentBalance ?? 0)) * 100) / 100;
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({
-          ...form,
-          openingBalance: !isEdit && openingAmount > 0 ? { direction: openingDirection, amount: openingAmount } : undefined,
-        });
+        const balanceAdjustment: BalanceAdjustment | undefined =
+          isEdit && Math.abs(balanceDelta) > 0.009
+            ? { idempotencyKey: adjustmentKey, direction: balanceDelta > 0 ? "debit" : "credit", amount: Math.abs(balanceDelta) }
+            : undefined;
+        onSubmit(
+          {
+            ...form,
+            openingBalance: !isEdit && openingAmount > 0 ? { direction: openingDirection, amount: openingAmount } : undefined,
+          },
+          balanceAdjustment,
+        );
       }}
       className="space-y-5"
     >
@@ -215,6 +233,46 @@ function PartyForm({
         </div>
       )}
 
+      {isEdit && canSetCreditLimit && (
+        <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            {form.type === "customer" ? "Pichla Baqaya" : "Supplier Ki Adayagi (Baqaya)"}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {form.type === "customer"
+              ? "Is customer par is waqt kitna baqaya hai — kisi doosre software se migrate karte waqt yahan sahi kar lein."
+              : "Is supplier ko abhi kitni payment dena baqi hai — kisi doosre software se migrate karte waqt yahan sahi kar lein."}
+          </p>
+          <div>
+            <label className={labelClass}>
+              {form.type === "customer" ? "Sahi Pichla Baqaya" : "Sahi Baqaya (Supplier Ko Adayagi)"}
+            </label>
+            <FieldWithIcon icon={Wallet}>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={newBalance || ""}
+                onChange={(e) => setNewBalance(Math.max(0, Number(e.target.value)))}
+                className={inputClass + " mt-0 pl-9"}
+              />
+            </FieldWithIcon>
+          </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Abhi ledger mein: {formatCurrency(currentBalance ?? 0)}
+            {Math.abs(balanceDelta) > 0.009 && (
+              <>
+                {" — save karte hi ek "}
+                <span className="font-medium text-gray-600 dark:text-gray-300">
+                  {balanceDelta > 0 ? "adjustment" : "correction"} entry ({formatCurrency(Math.abs(balanceDelta))})
+                </span>
+                {" ledger mein post hogi taa ke Ledger page, is form, aur list — sab jagah balance ek jaisa rahe."}
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
@@ -266,9 +324,28 @@ export function PartiesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Partial<PartyInput> }) => updateParty(id, input),
-    onSuccess: () => {
+    mutationFn: async ({
+      id,
+      input,
+      balanceAdjustment,
+    }: {
+      id: string;
+      input: Partial<PartyInput>;
+      balanceAdjustment?: BalanceAdjustment;
+    }) => {
+      await updateParty(id, input);
+      // Separate call, not part of the party-update payload — the balance is never set
+      // directly, only ever derived from a real ledger entry (same rule as everywhere
+      // else money moves in this app), so "editing the baqaya" really means posting an
+      // adjustment and letting the ledger recompute cachedBalance from it.
+      if (balanceAdjustment) {
+        await postLedgerAdjustment(id, balanceAdjustment);
+      }
+    },
+    onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["parties"] });
+      queryClient.invalidateQueries({ queryKey: ["party", id] });
+      queryClient.invalidateQueries({ queryKey: ["party-ledger", id] });
       setModal(null);
     },
     onError: (err) => setFormError(axiosErrorMessage(err) ?? "Failed to save customer"),
@@ -447,10 +524,11 @@ export function PartiesPage() {
             }}
             isEdit={true}
             canSetCreditLimit={canSetCreditLimit}
+            currentBalance={Number(modal.party.cachedBalance)}
             submitting={updateMutation.isPending}
             error={formError}
             onCancel={() => setModal(null)}
-            onSubmit={(input) => updateMutation.mutate({ id: modal.party.id, input })}
+            onSubmit={(input, balanceAdjustment) => updateMutation.mutate({ id: modal.party.id, input, balanceAdjustment })}
           />
         </Modal>
       )}
