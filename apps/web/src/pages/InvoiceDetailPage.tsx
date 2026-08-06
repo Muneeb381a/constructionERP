@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toPng } from "html-to-image";
-import { FileDown, MessageCircle } from "lucide-react";
+import { FileDown, MessageCircle, Trash2 } from "lucide-react";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
 import { buildOrderTrackingMessage, buildWhatsAppLink, buildWhatsAppShareLink } from "../lib/whatsapp";
@@ -185,7 +185,7 @@ export function InvoiceDetailPage() {
   const canVoid = role === "owner" || role === "manager";
 
   const [voidReason, setVoidReason] = useState("");
-  const [showVoidForm, setShowVoidForm] = useState(false);
+  const [showVoidModal, setShowVoidModal] = useState(false);
   const [voidError, setVoidError] = useState<string | null>(null);
 
   const [showShareModal, setShowShareModal] = useState(false);
@@ -235,10 +235,18 @@ export function InvoiceDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoice", id] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      setShowVoidForm(false);
+      queryClient.invalidateQueries({ queryKey: ["party"] });
+      setShowVoidModal(false);
+      setVoidReason("");
     },
     onError: (err) => setVoidError(axiosErrorMessage(err) ?? "Failed to void invoice"),
   });
+
+  function openVoidModal() {
+    setVoidError(null);
+    setVoidReason("");
+    setShowVoidModal(true);
+  }
 
   async function handleDownloadPdf(invoiceId: string) {
     const blob = await fetchInvoicePdf(invoiceId);
@@ -342,6 +350,15 @@ export function InvoiceDetailPage() {
               Return
             </Link>
           )}
+          {canVoid && invoice.status !== "void" && (
+            <button
+              onClick={openVoidModal}
+              className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+            >
+              <Trash2 size={14} />
+              Delete Bill
+            </button>
+          )}
           <span
             className={`h-fit rounded-full px-3 py-1 text-xs font-medium ${
               invoice.status === "void"
@@ -404,51 +421,50 @@ export function InvoiceDetailPage() {
 
       {invoice.status === "void" && (
         <p className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
-          Voided on {invoice.voidedAt ? new Date(invoice.voidedAt).toLocaleString() : "—"}.
+          Deleted (voided) on {invoice.voidedAt ? new Date(invoice.voidedAt).toLocaleString() : "—"}.
         </p>
       )}
 
-      {canVoid && invoice.status !== "void" && (
-        <div className="border-t border-gray-200 pt-4 dark:border-gray-800">
-          {!showVoidForm ? (
-            <button
-              onClick={() => setShowVoidForm(true)}
-              className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
-            >
-              Void Invoice
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reason for voiding</label>
+      {showVoidModal && (
+        <Modal title="Delete Bill" onClose={() => setShowVoidModal(false)}>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              This reverses everything <span className="font-medium">{invoice.invoiceNo}</span> did — stock goes back, and any
+              amount it added (or any payment recorded against it) is corrected in the ledger. The bill itself is never removed
+              from your records, only marked deleted, so your invoice history and reports stay accurate.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reason</label>
               <textarea
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 rows={2}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                autoFocus
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 placeholder="e.g. Customer changed mind, wrong item billed…"
               />
-              {voidError && <p className="text-sm text-red-600 dark:text-red-400">{voidError}</p>}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowVoidForm(false)}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setVoidError(null);
-                    voidMutation.mutate();
-                  }}
-                  disabled={voidReason.trim().length < 3 || voidMutation.isPending}
-                  className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  {voidMutation.isPending ? "Voiding…" : "Confirm Void"}
-                </button>
-              </div>
             </div>
-          )}
-        </div>
+            {voidError && <p className="text-sm text-red-600 dark:text-red-400">{voidError}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowVoidModal(false)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setVoidError(null);
+                  voidMutation.mutate();
+                }}
+                disabled={voidReason.trim().length < 3 || voidMutation.isPending}
+                className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {voidMutation.isPending ? "Deleting…" : "Delete Bill"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {showShareModal && (
