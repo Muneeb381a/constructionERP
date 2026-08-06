@@ -412,6 +412,12 @@ export function InvoiceDetailPage() {
             <span>Discount</span>
             <span>{formatCurrency(Number(invoice.discount))}</span>
           </div>
+          {(invoice.otherCharges ?? []).map((charge, i) => (
+            <div key={i} className="flex justify-between text-gray-600 dark:text-gray-400">
+              <span>{charge.label}</span>
+              <span>{formatCurrency(charge.amount)}</span>
+            </div>
+          ))}
           <div className="flex justify-between border-t border-gray-200 pt-1 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
             <span>Total</span>
             <span>{formatCurrency(Number(invoice.totalAmount))}</span>
@@ -487,10 +493,13 @@ export function InvoiceDetailPage() {
                   createdAt={invoice.createdAt}
                   partyName={party?.name}
                   partyPhone={party?.phone}
+                  businessPhone={tenant?.phone}
                   items={receiptItems}
                   subtotal={invoice.subtotal}
                   discount={invoice.discount}
+                  otherCharges={invoice.otherCharges}
                   totalAmount={invoice.totalAmount}
+                  status={invoice.status}
                 />
               </div>
             </div>

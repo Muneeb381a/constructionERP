@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
+import { ChargesEditor, type InvoiceCharge } from "../components/ChargesEditor";
 import { useInvoiceCart } from "../hooks/useInvoiceCart";
 import { useShopContext } from "../hooks/useShopContext";
 import { axiosErrorMessage } from "../lib/errors";
@@ -39,6 +40,7 @@ export function PurchaseInvoicePage() {
   const { cart, addProduct, updateItem, removeItem, clear, subtotal } = useInvoiceCart(units, "purchasePrice");
   const [party, setParty] = useState<Party | null>(null);
   const [discount, setDiscount] = useState(0);
+  const [charges, setCharges] = useState<InvoiceCharge[]>([]);
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successInvoiceNo, setSuccessInvoiceNo] = useState<string | null>(null);
@@ -66,7 +68,8 @@ export function PurchaseInvoicePage() {
     })();
   }, []);
 
-  const total = round2(subtotal - discount);
+  const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
+  const total = round2(subtotal - discount + chargesTotal);
 
   const mutation = useMutation({
     mutationFn: (input: CreatePurchaseInvoiceInput) => createPurchaseInvoice(input),
@@ -77,6 +80,7 @@ export function PurchaseInvoicePage() {
       clear();
       setParty(null);
       setDiscount(0);
+      setCharges([]);
       setSubmitError(null);
       setIdempotencyKey(crypto.randomUUID());
 
@@ -96,6 +100,7 @@ export function PurchaseInvoicePage() {
       warehouseId: shop.warehouseId,
       partyId: party?.id ?? null,
       discount: discount || undefined,
+      otherCharges: charges.length ? charges : undefined,
       items: cart.map((item) => ({
         productId: item.productId,
         unitId: item.unitId,
@@ -184,6 +189,14 @@ export function PurchaseInvoicePage() {
               className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
             />
           </div>
+
+          <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              Loader / Rolly / Other Charges
+            </p>
+            <ChargesEditor charges={charges} onChange={setCharges} />
+          </div>
+
           <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
             <span>Total</span>
             <span>{formatCurrency(total)}</span>

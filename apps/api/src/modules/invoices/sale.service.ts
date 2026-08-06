@@ -53,7 +53,8 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
 
     const discount = input.discount ?? 0;
     if (discount > subtotal) throw new HttpError(400, "discount cannot exceed the invoice subtotal");
-    const totalAmount = roundMoney(subtotal - discount);
+    const otherChargesTotal = (input.otherCharges ?? []).reduce((sum, c) => sum + c.amount, 0);
+    const totalAmount = roundMoney(subtotal - discount + otherChargesTotal);
 
     if (input.payment) {
       if (!party) throw new HttpError(400, "A customer must be selected to record a payment");
@@ -100,6 +101,7 @@ export async function createSaleInvoice(ctx: CreateSaleInvoiceContext, input: Cr
         userId,
         subtotal: subtotal.toString(),
         discount: discount.toString(),
+        otherCharges: input.otherCharges?.length ? input.otherCharges : null,
         totalAmount: totalAmount.toString(),
         idempotencyKey: input.idempotencyKey,
       })

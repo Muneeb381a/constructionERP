@@ -134,6 +134,13 @@
       "when": 1785909611146,
       "tag": "0018_amused_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785992931966,
+      "tag": "0019_large_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

@@ -194,6 +194,11 @@ export const invoices = pgTable("invoices", {
   projectId: uuid("project_id").references(() => projects.id), // optional — ties this sale to a site's running material total
   subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull(),
   discount: numeric("discount", { precision: 14, scale: 2 }).default("0"),
+  // Named add-on charges — loader/rolly labor, freight, etc. — added on top of the item
+  // subtotal: [{ label: string, amount: number }]. Stored as a snapshot at invoice time,
+  // same principle as invoice_items, so a later rename of nothing (there's no separate
+  // "charge type" table) never rewrites history.
+  otherCharges: jsonb("other_charges").$type<{ label: string; amount: number }[]>(),
   totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull(),
   idempotencyKey: uuid("idempotency_key").notNull(),
   voidedAt: timestamp("voided_at", { withTimezone: true }),

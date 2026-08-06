@@ -103,7 +103,13 @@ export async function generateInvoicePdf(tenantId: string, invoiceId: string): P
   y -= 14;
   page.drawText("Discount", { x: summaryX, y, size: 10, font, color: gray });
   page.drawText(invoice.discount ?? "0.00", { x: col.total, y, size: 10, font, color: black });
-  y -= 16;
+  y -= 14;
+  for (const charge of invoice.otherCharges ?? []) {
+    page.drawText(charge.label, { x: summaryX, y, size: 10, font, color: gray });
+    page.drawText(charge.amount.toFixed(2), { x: col.total, y, size: 10, font, color: black });
+    y -= 14;
+  }
+  y -= 2;
   page.drawText("Total", { x: summaryX, y, size: 12, font: bold, color: black });
   page.drawText(invoice.totalAmount, { x: col.total, y, size: 12, font: bold, color: black });
 

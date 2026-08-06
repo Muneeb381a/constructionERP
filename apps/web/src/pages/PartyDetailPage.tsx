@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, BookText, CreditCard, Download, Link2, Lock, MessageCircle, Receipt, Repeat, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
+import { toPng } from "html-to-image";
+import { AlertTriangle, BookText, CreditCard, Download, ImageIcon, Link2, Lock, MessageCircle, Receipt, Repeat, ShoppingBag, Trophy, Truck, Wallet } from "lucide-react";
 import { Modal } from "../components/Modal";
 import { Loader } from "../components/Loader";
+import { StatementImage } from "../components/StatementImage";
 import { inputClass, labelClass } from "../lib/formStyles";
 import { axiosErrorMessage } from "../lib/errors";
 import { formatCurrency } from "../lib/format";
@@ -13,6 +15,7 @@ import { useAuthStore } from "../store/authStore";
 import { getParty, getPartyPublicLink, downloadPartyStatement, type Party } from "../lib/api/parties";
 import { getPartyLedger, postLedgerAdjustment, postOpeningBalance } from "../lib/api/ledger";
 import { createRateLock, listRateLocksForParty, type CreateRateLockInput } from "../lib/api/rateLocks";
+import { getMyTenant } from "../lib/api/tenants";
 import { ProductPicker } from "../components/ProductPicker";
 import type { Product } from "../lib/api/products";
 import {
@@ -514,6 +517,67 @@ export function PartyDetailPage() {
   const [downloadingStatement, setDownloadingStatement] = useState(false);
   const [repeatOrderLoading, setRepeatOrderLoading] = useState(false);
 
+  const [showStatementImageModal, setShowStatementImageModal] = useState(false);
+  const [sharingStatementImage, setSharingStatementImage] = useState(false);
+  const [statementImageError, setStatementImageError] = useState<string | null>(null);
+  const statementImageRef = useRef<HTMLDivElement>(null);
+
+  const { data: tenant } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant, enabled: showStatementImageModal });
+  const { data: statementBills } = useQuery({
+    queryKey: ["party-bills", id],
+    queryFn: () => listPartyBills(id!),
+    enabled: !!id,
+  });
+
+  async function generateStatementPng(): Promise<Blob> {
+    if (!statementImageRef.current) throw new Error("Statement not ready");
+    const dataUrl = await toPng(statementImageRef.current, { pixelRatio: 2, backgroundColor: "#ffffff" });
+    const res = await fetch(dataUrl);
+    return res.blob();
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  async function handleShareStatementImage(partyName: string) {
+    setSharingStatementImage(true);
+    setStatementImageError(null);
+    try {
+      const blob = await generateStatementPng();
+      const file = new File([blob], `${partyName}-statement.png`, { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Statement — ${partyName}` });
+      } else {
+        downloadBlob(blob, `${partyName}-statement.png`);
+      }
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setStatementImageError("Image share nahi ho saka. Download Image try karein.");
+      }
+    } finally {
+      setSharingStatementImage(false);
+    }
+  }
+
+  async function handleDownloadStatementImage(partyName: string) {
+    setSharingStatementImage(true);
+    setStatementImageError(null);
+    try {
+      const blob = await generateStatementPng();
+      downloadBlob(blob, `${partyName}-statement.png`);
+    } catch {
+      setStatementImageError("Image generate nahi ho saki.");
+    } finally {
+      setSharingStatementImage(false);
+    }
+  }
+
   const { data: recentSales } = useQuery({
     queryKey: ["party-invoices", id, "sale", "recent"],
     queryFn: () => listInvoices({ partyId: id!, type: "sale", limit: 5 }),
@@ -683,6 +747,13 @@ export function PartyDetailPage() {
               >
                 <Download size={15} />
                 {downloadingStatement ? "Preparing…" : "Download Statement (PDF)"}
+              </button>
+              <button
+                onClick={() => setShowStatementImageModal(true)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <ImageIcon size={15} />
+                Share Statement (Image)
               </button>
               {shareLinkError && <p className="text-sm text-red-600 dark:text-red-400">{shareLinkError}</p>}
               {statementError && <p className="text-sm text-red-600 dark:text-red-400">{statementError}</p>}
@@ -915,6 +986,45 @@ export function PartyDetailPage() {
       {modal === "rate-lock" && (
         <Modal title="Lock a Rate" onClose={() => setModal(null)}>
           <RateLockForm partyId={id!} onDone={() => setModal(null)} />
+        </Modal>
+      )}
+
+      {showStatementImageModal && (
+        <Modal title="Share Statement" onClose={() => setShowStatementImageModal(false)}>
+          <div className="space-y-4">
+            <div className="max-h-[60vh] overflow-auto rounded-md border border-gray-200 bg-gray-100 p-4 dark:border-gray-800 dark:bg-gray-950">
+              <div ref={statementImageRef} className="mx-auto w-fit">
+                <StatementImage
+                  businessName={tenant?.businessName ?? "…"}
+                  logoUrl={tenant?.logoUrl}
+                  businessPhone={tenant?.phone}
+                  businessAddress={tenant?.address}
+                  partyName={party.name}
+                  partyPhone={party.phone}
+                  partyType={party.type}
+                  bills={statementBills ?? []}
+                  balance={balance}
+                />
+              </div>
+            </div>
+            {statementImageError && <p className="text-sm text-red-600 dark:text-red-400">{statementImageError}</p>}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => handleDownloadStatementImage(party.name)}
+                disabled={sharingStatementImage}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Download Image
+              </button>
+              <button
+                onClick={() => handleShareStatementImage(party.name)}
+                disabled={sharingStatementImage}
+                className="rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {sharingStatementImage ? "Preparing…" : "Share via WhatsApp"}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

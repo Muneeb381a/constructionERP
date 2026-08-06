@@ -1,5 +1,7 @@
 import { apiClient } from "../apiClient";
 
+export type InvoiceCharge = { label: string; amount: number };
+
 export type InvoiceItem = {
   id: number;
   invoiceId: string;
@@ -24,6 +26,7 @@ export type Invoice = {
   originalInvoiceId: string | null;
   subtotal: string;
   discount: string;
+  otherCharges: InvoiceCharge[] | null;
   totalAmount: string;
   idempotencyKey: string;
   voidedAt: string | null;
@@ -41,6 +44,7 @@ export type CreateSaleInvoiceInput = {
   partyId?: string | null;
   projectId?: string | null;
   discount?: number;
+  otherCharges?: InvoiceCharge[];
   overrideCreditLimit?: boolean;
   payment?: {
     method: "cash" | "bank_transfer";
@@ -83,6 +87,7 @@ export type CreatePurchaseInvoiceInput = {
   warehouseId: string;
   partyId?: string | null;
   discount?: number;
+  otherCharges?: InvoiceCharge[];
   items: {
     productId: string;
     unitId: number;

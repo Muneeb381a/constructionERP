@@ -5,6 +5,7 @@ import { CloudOff, FileDown, RefreshCw, Truck, User, PackagePlus, Receipt, Bankn
 import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
+import { ChargesEditor, type InvoiceCharge } from "../components/ChargesEditor";
 import { useInvoiceCart } from "../hooks/useInvoiceCart";
 import { useOfflineSalesSync } from "../hooks/useOfflineSalesSync";
 import { useShopContext } from "../hooks/useShopContext";
@@ -97,6 +98,7 @@ export function SaleInvoicePage() {
     // change would re-trigger the repeat-order fill after we've already cleared the state
   }, []);
   const [discount, setDiscount] = useState(0);
+  const [charges, setCharges] = useState<InvoiceCharge[]>([]);
   const [amountReceived, setAmountReceived] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
@@ -106,7 +108,8 @@ export function SaleInvoicePage() {
 
   const offlineSync = useOfflineSalesSync();
 
-  const total = round2(subtotal - discount);
+  const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
+  const total = round2(subtotal - discount + chargesTotal);
   const balanceAfterPayment = round2(total - amountReceived);
 
   function resetFormAfterSubmit() {
@@ -115,6 +118,7 @@ export function SaleInvoicePage() {
     setProjectId("");
     setDeliveryEmployeeId("");
     setDiscount(0);
+    setCharges([]);
     setAmountReceived(0);
     setPaymentMethod("cash");
     setSubmitError(null);
@@ -205,6 +209,7 @@ export function SaleInvoicePage() {
       partyId: party?.id ?? null,
       projectId: projectId || null,
       discount: discount || undefined,
+      otherCharges: charges.length ? charges : undefined,
       overrideCreditLimit: overrideCreditLimit || undefined,
       payment: party && amountReceived > 0 ? { method: paymentMethod, amount: amountReceived } : undefined,
       items: cart.map((item) => ({
@@ -420,10 +425,18 @@ export function SaleInvoicePage() {
                   className="w-28 rounded-md border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
-              <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
-                <span>Total</span>
-                <span>{formatCurrency(total)}</span>
-              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                Loader / Rolly / Other Charges
+              </p>
+              <ChargesEditor charges={charges} onChange={setCharges} />
+            </div>
+
+            <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-semibold text-gray-900 dark:border-gray-800 dark:text-gray-100">
+              <span>Total</span>
+              <span>{formatCurrency(total)}</span>
             </div>
 
             {party && total > 0 && (

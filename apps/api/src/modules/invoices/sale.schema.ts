@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+// Named add-on charges — loader/rolly labor, freight, etc. — added on top of the item
+// subtotal. A free-text label rather than a fixed enum: shops name these however they
+// think of them, and there's no shared catalog of "charge types" to keep consistent.
+export const invoiceChargeSchema = z.object({
+  label: z.string().min(1).max(60),
+  amount: z.coerce.number().positive(),
+});
+
 export const createSaleInvoiceSchema = z.object({
   idempotencyKey: z.string().uuid(),
   branchId: z.string().uuid(),
@@ -7,6 +15,7 @@ export const createSaleInvoiceSchema = z.object({
   partyId: z.string().uuid().nullable().optional(),
   projectId: z.string().uuid().nullable().optional(),
   discount: z.coerce.number().nonnegative().optional(),
+  otherCharges: z.array(invoiceChargeSchema).max(10).optional(),
   overrideCreditLimit: z.boolean().optional(),
   payment: z
     .object({
@@ -28,3 +37,4 @@ export const createSaleInvoiceSchema = z.object({
 });
 
 export type CreateSaleInvoiceInput = z.infer<typeof createSaleInvoiceSchema>;
+export type InvoiceCharge = z.infer<typeof invoiceChargeSchema>;
