@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BarChart3, Clock3, Download, FileText, LineChart, PackageSearch, ShoppingCart, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowRight, BarChart3, Clock3, Download, FileText, LineChart, PackageSearch, Search, ShoppingCart, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { SalesTrendChart } from "../components/SalesTrendChart";
 import { Loader } from "../components/Loader";
 import { Modal } from "../components/Modal";
@@ -56,15 +56,28 @@ const PRESETS = [
 const TH = "px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200";
 const THEAD = "bg-amber-50/60 dark:bg-amber-500/10";
 
+const DEFAULT_VISIBLE_ROWS = 10;
+
 function AgingReportSection() {
   const [partyType, setPartyType] = useState<"customer" | "supplier">("customer");
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const { data, isLoading, isError } = useQuery({ queryKey: ["reports-aging", partyType], queryFn: () => getAgingReport(partyType) });
 
-  const grandTotal = (data ?? []).reduce((sum, r) => sum + r.total, 0);
+  // A real shop can have hundreds of parties with some balance — dumping every one of
+  // them in a flat table isn't a report, it's a wall of numbers. Default to the top 10
+  // by what's owed (the ones actually worth chasing first) and let search or "Show all"
+  // reach the rest, same pattern as the ledger report below.
+  const allRows = data ?? [];
+  const filtered = search.trim()
+    ? allRows.filter((r) => r.partyName.toLowerCase().includes(search.trim().toLowerCase()))
+    : allRows;
+  const visibleRows = showAll || search.trim() ? filtered : filtered.slice(0, DEFAULT_VISIBLE_ROWS);
+  const grandTotal = allRows.reduce((sum, r) => sum + r.total, 0);
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
           <Clock3 size={16} className="text-gray-400" />
           Udhaar Aging
@@ -76,19 +89,38 @@ function AgingReportSection() {
             style={{ transform: partyType === "supplier" ? "translateX(calc(100% + 4px))" : "translateX(0)" }}
           />
           <button
-            onClick={() => setPartyType("customer")}
+            onClick={() => {
+              setPartyType("customer");
+              setShowAll(false);
+            }}
             className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "customer" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
           >
             Customers
           </button>
           <button
-            onClick={() => setPartyType("supplier")}
+            onClick={() => {
+              setPartyType("supplier");
+              setShowAll(false);
+            }}
             className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "supplier" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
           >
             Suppliers
           </button>
         </div>
       </div>
+
+      {allRows.length > DEFAULT_VISIBLE_ROWS && (
+        <div className="relative mb-2 max-w-xs">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Search ${partyType}s…`}
+            className={`${inputClass} pl-8`}
+          />
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
@@ -107,7 +139,7 @@ function AgingReportSection() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {data?.map((row) => (
+              {visibleRows.map((row) => (
                 <tr key={row.partyId} className={row.d90plus > 0 ? "bg-red-50/40 dark:bg-red-900/10" : undefined}>
                   <td className="px-4 py-3">
                     <Link to={`/customers/${row.partyId}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
@@ -121,19 +153,38 @@ function AgingReportSection() {
                   <td className="px-4 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(row.total)}</td>
                 </tr>
               ))}
-              {data?.length === 0 && (
+              {allRows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
                     No outstanding balances.
                   </td>
                 </tr>
               )}
+              {allRows.length > 0 && visibleRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                    No match.
+                  </td>
+                </tr>
+              )}
             </tbody>
-            {data && data.length > 0 && (
+            {allRows.length > 0 && (
               <tfoot>
+                {!showAll && !search.trim() && filtered.length > DEFAULT_VISIBLE_ROWS && (
+                  <tr className="border-t border-gray-100 dark:border-gray-800">
+                    <td colSpan={6} className="px-4 py-2 text-center">
+                      <button
+                        onClick={() => setShowAll(true)}
+                        className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        Show all {filtered.length} {partyType}s with a balance
+                      </button>
+                    </td>
+                  </tr>
+                )}
                 <tr className="border-t border-gray-200 dark:border-gray-800">
                   <td className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400" colSpan={5}>
-                    Grand Total
+                    Grand Total {search.trim() && <span className="font-normal">(all {partyType}s, not just this search)</span>}
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(grandTotal)}</td>
                 </tr>
@@ -148,6 +199,8 @@ function AgingReportSection() {
 
 function PartyLedgerReportSection({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
   const [partyType, setPartyType] = useState<"customer" | "supplier">("customer");
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -158,8 +211,18 @@ function PartyLedgerReportSection({ dateFrom, dateTo }: { dateFrom: string; date
 
   const takenLabel = partyType === "supplier" ? "Received" : "Taken";
   const paidLabel = partyType === "supplier" ? "Paid" : "Received";
-  const rows = data ?? [];
-  const totals = rows.reduce(
+  const allRows = data ?? [];
+  // Same reasoning as the aging report above: a long period can pull in every party that
+  // had any activity at all, which stops being a useful "who to check on" list past a
+  // screenful — default to the top 10 by closing balance, search or expand for the rest.
+  const filteredRows = search.trim()
+    ? allRows.filter((r) => r.partyName.toLowerCase().includes(search.trim().toLowerCase()))
+    : allRows;
+  const rows = showAll || search.trim() ? filteredRows : filteredRows.slice(0, DEFAULT_VISIBLE_ROWS);
+  // Totals always reflect every party in this period (not just the visible slice), same
+  // as the aging report's grand total — so the footer number never depends on scroll
+  // position or whether "Show all" has been clicked.
+  const totals = allRows.reduce(
     (acc, r) => ({
       opening: acc.opening + r.openingBalance,
       taken: acc.taken + r.periodTaken,
@@ -197,13 +260,19 @@ function PartyLedgerReportSection({ dateFrom, dateTo }: { dateFrom: string; date
               style={{ transform: partyType === "supplier" ? "translateX(calc(100% + 4px))" : "translateX(0)" }}
             />
             <button
-              onClick={() => setPartyType("customer")}
+              onClick={() => {
+                setPartyType("customer");
+                setShowAll(false);
+              }}
               className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "customer" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
             >
               Customers
             </button>
             <button
-              onClick={() => setPartyType("supplier")}
+              onClick={() => {
+                setPartyType("supplier");
+                setShowAll(false);
+              }}
               className={`relative z-10 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${partyType === "supplier" ? "text-white" : "text-gray-500 dark:text-gray-400"}`}
             >
               Suppliers
@@ -224,6 +293,19 @@ function PartyLedgerReportSection({ dateFrom, dateTo }: { dateFrom: string; date
         the selected dates — same numbers as the Ledger page, just totaled for record-keeping.
       </p>
       {downloadError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{downloadError}</p>}
+
+      {allRows.length > DEFAULT_VISIBLE_ROWS && (
+        <div className="relative mb-2 max-w-xs">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Search ${partyType}s…`}
+            className={`${inputClass} pl-8`}
+          />
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <Loader />
@@ -260,18 +342,39 @@ function PartyLedgerReportSection({ dateFrom, dateTo }: { dateFrom: string; date
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && (
+              {allRows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
                     No activity in this period.
                   </td>
                 </tr>
               )}
+              {allRows.length > 0 && rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                    No match.
+                  </td>
+                </tr>
+              )}
             </tbody>
-            {rows.length > 0 && (
+            {allRows.length > 0 && (
               <tfoot>
+                {!showAll && !search.trim() && filteredRows.length > DEFAULT_VISIBLE_ROWS && (
+                  <tr className="border-t border-gray-100 dark:border-gray-800">
+                    <td colSpan={5} className="px-4 py-2 text-center">
+                      <button
+                        onClick={() => setShowAll(true)}
+                        className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        Show all {filteredRows.length} {partyType}s
+                      </button>
+                    </td>
+                  </tr>
+                )}
                 <tr className="border-t border-gray-200 dark:border-gray-800">
-                  <td className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400">Total</td>
+                  <td className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400">
+                    Total {search.trim() && <span className="font-normal">(all {partyType}s, not just this search)</span>}
+                  </td>
                   <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totals.opening)}</td>
                   <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totals.taken)}</td>
                   <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totals.paid)}</td>
