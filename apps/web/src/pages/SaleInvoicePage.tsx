@@ -370,8 +370,8 @@ export function SaleInvoicePage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <section className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="absolute inset-y-0 left-0 w-1.5 bg-blue-500" />
+          <section className="relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute inset-y-0 left-0 w-1.5 rounded-l-2xl bg-blue-500" />
             <h2 className="mb-3 flex items-center gap-2 pl-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
                 <User size={14} className="text-blue-600 dark:text-blue-400" />
@@ -424,8 +424,8 @@ export function SaleInvoicePage() {
             )}
           </section>
 
-          <section className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="absolute inset-y-0 left-0 w-1.5 bg-amber-500" />
+          <section className="relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute inset-y-0 left-0 w-1.5 rounded-l-2xl bg-amber-500" />
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/10">
                 <PackagePlus size={14} className="text-amber-600 dark:text-amber-400" />

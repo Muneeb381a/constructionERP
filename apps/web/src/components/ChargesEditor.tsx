@@ -91,7 +91,13 @@ export function ChargesEditor({ charges, onChange }: { charges: InvoiceCharge[];
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                add();
+                // amount isn't filled yet — jump there instead of silently no-op'ing,
+                // so Enter, Enter always moves the entry forward for a quick multi-add
+                if (label.trim() && !amount) {
+                  amountRef.current?.focus();
+                } else {
+                  add();
+                }
               }
             }}
             placeholder="Charge name"
@@ -116,7 +122,9 @@ export function ChargesEditor({ charges, onChange }: { charges: InvoiceCharge[];
           className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>
-      <p className="text-[11px] text-gray-400 dark:text-gray-500">Type a name and amount, then press Enter — it's added to the bill right away.</p>
+      <p className="text-[11px] text-gray-400 dark:text-gray-500">
+        Type a name, press Enter, type the amount, press Enter again — added right away. Repeat for more charges.
+      </p>
     </div>
   );
 }
