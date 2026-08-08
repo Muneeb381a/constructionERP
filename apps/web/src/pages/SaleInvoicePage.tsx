@@ -6,6 +6,8 @@ import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
 import { ChargesEditor, type InvoiceCharge } from "../components/ChargesEditor";
+import { ShareInvoiceImageButton } from "../components/ShareInvoiceImageButton";
+import type { ReceiptLine } from "../components/ReceiptImage";
 import { useInvoiceCart } from "../hooks/useInvoiceCart";
 import { useOfflineSalesSync } from "../hooks/useOfflineSalesSync";
 import { useShopContext } from "../hooks/useShopContext";
@@ -20,6 +22,7 @@ import { getProduct, type Product } from "../lib/api/products";
 import { listActiveRateLocksForParty } from "../lib/api/rateLocks";
 import { listProjects } from "../lib/api/projects";
 import { listEmployees } from "../lib/api/employees";
+import { getMyTenant } from "../lib/api/tenants";
 import { openInvoicePdf } from "../lib/printInvoice";
 import { isNetworkError, queueSale } from "../lib/offlineSalesQueue";
 
@@ -44,6 +47,7 @@ export function SaleInvoicePage() {
 
   const { data: units } = useQuery({ queryKey: ["units"], queryFn: listUnits });
   const { data: topCustomers } = useQuery({ queryKey: ["top-customers-quickpick"], queryFn: () => getTopCustomers(6) });
+  const { data: tenant } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant });
   const shop = useShopContext();
 
   const { cart, addProduct, updateItem, removeItem, clear, subtotal } = useInvoiceCart(units, "salePrice");
@@ -70,6 +74,17 @@ export function SaleInvoicePage() {
   const [deliveryEmployeeId, setDeliveryEmployeeId] = useState("");
   const { data: employees } = useQuery({ queryKey: ["employees", ""], queryFn: () => listEmployees() });
   const [completedInvoice, setCompletedInvoice] = useState<{ id: string; hasDelivery: boolean } | null>(null);
+  const [completedReceipt, setCompletedReceipt] = useState<{
+    invoiceNo: string;
+    createdAt: string;
+    partyName?: string | null;
+    partyPhone?: string | null;
+    items: ReceiptLine[];
+    subtotal: string;
+    discount: string;
+    otherCharges: InvoiceCharge[] | null;
+    totalAmount: string;
+  } | null>(null);
   const [downloadingChallan, setDownloadingChallan] = useState(false);
   const [printBlocked, setPrintBlocked] = useState(false);
 
@@ -175,6 +190,23 @@ export function SaleInvoicePage() {
       }
 
       setCompletedInvoice({ id: result.invoice.id, hasDelivery });
+      setCompletedReceipt({
+        invoiceNo: result.invoice.invoiceNo,
+        createdAt: result.invoice.createdAt,
+        partyName: party?.name,
+        partyPhone: party?.phone,
+        items: cart.map((item) => ({
+          productName: item.productName,
+          unitName: units?.find((u) => u.id === item.unitId)?.name ?? "",
+          quantity: String(item.quantity),
+          unitPrice: item.unitPrice.toFixed(2),
+          lineTotal: (item.quantity * item.unitPrice).toFixed(2),
+        })),
+        subtotal: result.invoice.subtotal,
+        discount: result.invoice.discount,
+        otherCharges: result.invoice.otherCharges,
+        totalAmount: result.invoice.totalAmount,
+      });
       setSuccessMessage(
         `Sale invoice ${result.invoice.invoiceNo} created.${paymentNote}${deliveryEmployeeId && !hasDelivery ? " (delivery assignment failed — assign it from the invoice page)" : ""}`,
       );
@@ -305,10 +337,28 @@ export function SaleInvoicePage() {
                 {downloadingChallan ? "Preparing…" : "Print Delivery Challan"}
               </button>
             )}
+            {completedReceipt && (
+              <ShareInvoiceImageButton
+                invoiceNo={completedReceipt.invoiceNo}
+                type="sale"
+                createdAt={completedReceipt.createdAt}
+                partyName={completedReceipt.partyName}
+                partyPhone={completedReceipt.partyPhone}
+                businessName={tenant?.businessName ?? "…"}
+                logoUrl={tenant?.logoUrl}
+                businessPhone={tenant?.phone}
+                items={completedReceipt.items}
+                subtotal={completedReceipt.subtotal}
+                discount={completedReceipt.discount}
+                otherCharges={completedReceipt.otherCharges}
+                totalAmount={completedReceipt.totalAmount}
+              />
+            )}
             <button
               onClick={() => {
                 setSuccessMessage(null);
                 setCompletedInvoice(null);
+                setCompletedReceipt(null);
               }}
               className="font-medium hover:underline"
             >

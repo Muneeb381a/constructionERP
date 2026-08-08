@@ -6,6 +6,8 @@ import { ProductPicker } from "../components/ProductPicker";
 import { PartyPicker } from "../components/PartyPicker";
 import { CartTable } from "../components/CartTable";
 import { ChargesEditor, type InvoiceCharge } from "../components/ChargesEditor";
+import { ShareInvoiceImageButton } from "../components/ShareInvoiceImageButton";
+import type { ReceiptLine } from "../components/ReceiptImage";
 import { useInvoiceCart } from "../hooks/useInvoiceCart";
 import { useShopContext } from "../hooks/useShopContext";
 import { axiosErrorMessage } from "../lib/errors";
@@ -15,6 +17,7 @@ import { listUnits } from "../lib/api/units";
 import { createPurchaseInvoice, type CreatePurchaseInvoiceInput } from "../lib/api/invoices";
 import { getParty, type Party } from "../lib/api/parties";
 import { getProduct } from "../lib/api/products";
+import { getMyTenant } from "../lib/api/tenants";
 import { openInvoicePdf } from "../lib/printInvoice";
 
 function round2(n: number) {
@@ -36,6 +39,7 @@ export function PurchaseInvoicePage() {
   const canPurchase = user?.role === "owner" || user?.role === "manager";
 
   const { data: units } = useQuery({ queryKey: ["units"], queryFn: listUnits });
+  const { data: tenant } = useQuery({ queryKey: ["tenant"], queryFn: getMyTenant });
   const shop = useShopContext();
 
   const { cart, addProduct, updateItem, removeItem, clear, subtotal } = useInvoiceCart(units, "purchasePrice");
@@ -46,6 +50,17 @@ export function PurchaseInvoicePage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successInvoiceNo, setSuccessInvoiceNo] = useState<string | null>(null);
   const [successInvoiceId, setSuccessInvoiceId] = useState<string | null>(null);
+  const [completedReceipt, setCompletedReceipt] = useState<{
+    invoiceNo: string;
+    createdAt: string;
+    partyName?: string | null;
+    partyPhone?: string | null;
+    items: ReceiptLine[];
+    subtotal: string;
+    discount: string;
+    otherCharges: InvoiceCharge[] | null;
+    totalAmount: string;
+  } | null>(null);
   const [printBlocked, setPrintBlocked] = useState(false);
   const [reorderLoading, setReorderLoading] = useState(false);
   const reorderHandled = useRef(false);
@@ -77,6 +92,23 @@ export function PurchaseInvoicePage() {
     onSuccess: async (result) => {
       setSuccessInvoiceNo(result.invoice.invoiceNo);
       setSuccessInvoiceId(result.invoice.id);
+      setCompletedReceipt({
+        invoiceNo: result.invoice.invoiceNo,
+        createdAt: result.invoice.createdAt,
+        partyName: party?.name,
+        partyPhone: party?.phone,
+        items: cart.map((item) => ({
+          productName: item.productName,
+          unitName: units?.find((u) => u.id === item.unitId)?.name ?? "",
+          quantity: String(item.quantity),
+          unitPrice: item.unitPrice.toFixed(2),
+          lineTotal: (item.quantity * item.unitPrice).toFixed(2),
+        })),
+        subtotal: result.invoice.subtotal,
+        discount: result.invoice.discount,
+        otherCharges: result.invoice.otherCharges,
+        totalAmount: result.invoice.totalAmount,
+      });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       clear();
       setParty(null);
@@ -147,10 +179,28 @@ export function PurchaseInvoicePage() {
               >
                 Print Invoice
               </button>
+              {completedReceipt && (
+                <ShareInvoiceImageButton
+                  invoiceNo={completedReceipt.invoiceNo}
+                  type="purchase"
+                  createdAt={completedReceipt.createdAt}
+                  partyName={completedReceipt.partyName}
+                  partyPhone={completedReceipt.partyPhone}
+                  businessName={tenant?.businessName ?? "…"}
+                  logoUrl={tenant?.logoUrl}
+                  businessPhone={tenant?.phone}
+                  items={completedReceipt.items}
+                  subtotal={completedReceipt.subtotal}
+                  discount={completedReceipt.discount}
+                  otherCharges={completedReceipt.otherCharges}
+                  totalAmount={completedReceipt.totalAmount}
+                />
+              )}
               <button
                 onClick={() => {
                   setSuccessInvoiceNo(null);
                   setSuccessInvoiceId(null);
+                  setCompletedReceipt(null);
                 }}
                 className="font-medium hover:underline"
               >
