@@ -446,7 +446,7 @@ export function SaleInvoicePage() {
 
             <div className="border-t border-gray-200 pt-3 dark:border-gray-800">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                Loader / Rolly / Other Charges
+                Custom Charges <span className="normal-case text-gray-400">(Loader, Rolly, ya kuch bhi)</span>
               </p>
               <ChargesEditor charges={charges} onChange={setCharges} />
             </div>

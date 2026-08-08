@@ -1,9 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import { db } from "../../db/index.js";
 import { invoiceItems, invoices, parties, products, tenants, units } from "../../db/schema.js";
 import { HttpError } from "../../middleware/error.middleware.js";
 import { embedTenantLogo } from "../../lib/pdfLogo.js";
+import { A4, PAGE_LEFT, PAGE_RIGHT, PAGE_TOP, PDF_COLORS, drawAccentBar, drawPill } from "../../lib/pdfTheme.js";
 
 const TYPE_LABELS: Record<string, string> = {
   sale: "Sale Invoice",
@@ -37,15 +38,17 @@ export async function generateInvoicePdf(tenantId: string, invoiceId: string): P
   const unitNames = new Map(unitRows.map((u) => [u.id, u.name]));
 
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]); // A4
+  const page = pdfDoc.addPage(A4);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const black = rgb(0, 0, 0);
-  const gray = rgb(0.4, 0.4, 0.4);
+  const italic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+  const { ink, muted, hairline, accent, accentSoft, zebra, danger, dangerSoft } = PDF_COLORS;
 
-  const left = 50;
-  const right = 545;
-  let y = 790;
+  const left = PAGE_LEFT;
+  const right = PAGE_RIGHT;
+  let y = PAGE_TOP;
+
+  await drawAccentBar(page);
 
   const logo = await embedTenantLogo(pdfDoc, tenant.logoUrl);
   if (logo) {
@@ -53,65 +56,109 @@ export async function generateInvoicePdf(tenantId: string, invoiceId: string): P
     page.drawImage(logo, { x: right - dims.width, y: y - dims.height + 14, width: dims.width, height: dims.height });
   }
 
-  page.drawText(tenant.businessName, { x: left, y, size: 18, font: bold, color: black });
+  page.drawText(tenant.businessName, { x: left, y, size: 20, font: bold, color: ink });
+  y -= 22;
+  drawPill(page, (TYPE_LABELS[invoice.type] ?? invoice.type).toUpperCase(), left, y, bold, { size: 9 });
+  if (invoice.status === "void") {
+    drawPill(page, "VOID — DELETED", left + 150, y, bold, { size: 9, bg: dangerSoft, color: danger });
+  }
   y -= 26;
-  page.drawText(TYPE_LABELS[invoice.type] ?? invoice.type, { x: left, y, size: 13, font: bold, color: black });
+
+  page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 1, color: hairline });
+  y -= 18;
+
+  page.drawText("Invoice No", { x: left, y, size: 8, font: bold, color: muted });
+  page.drawText("Date", { x: left + 180, y, size: 8, font: bold, color: muted });
+  page.drawText("Status", { x: right - 90, y, size: 8, font: bold, color: muted });
+  y -= 13;
+  page.drawText(invoice.invoiceNo, { x: left, y, size: 10, font, color: ink });
+  page.drawText(invoice.createdAt!.toLocaleString(), { x: left + 180, y, size: 10, font, color: ink });
+  page.drawText(invoice.status, { x: right - 90, y, size: 10, font, color: invoice.status === "void" ? danger : ink });
   y -= 20;
 
-  page.drawText(`Invoice No: ${invoice.invoiceNo}`, { x: left, y, size: 10, font, color: gray });
-  page.drawText(`Status: ${invoice.status}`, { x: right - 120, y, size: 10, font, color: gray });
-  y -= 14;
-  page.drawText(`Date: ${invoice.createdAt!.toLocaleString()}`, { x: left, y, size: 10, font, color: gray });
-  y -= 14;
   if (party) {
     const label = invoice.type.startsWith("purchase") ? "Supplier" : "Customer";
-    page.drawText(`${label}: ${party.name}${party.phone ? " · " + party.phone : ""}`, { x: left, y, size: 10, font, color: gray });
-    y -= 14;
+    page.drawText(label, { x: left, y, size: 8, font: bold, color: muted });
+    y -= 13;
+    page.drawText(`${party.name}${party.phone ? "  ·  " + party.phone : ""}`, { x: left, y, size: 10, font, color: ink });
+    y -= 20;
   }
   if (invoice.originalInvoiceId) {
-    page.drawText(`Against invoice: ${invoice.originalInvoiceId}`, { x: left, y, size: 10, font, color: gray });
-    y -= 14;
-  }
-
-  y -= 10;
-  const col = { product: left, unit: 280, qty: 340, price: 410, total: 480 };
-  page.drawText("Product", { x: col.product, y, size: 10, font: bold, color: black });
-  page.drawText("Unit", { x: col.unit, y, size: 10, font: bold, color: black });
-  page.drawText("Qty", { x: col.qty, y, size: 10, font: bold, color: black });
-  page.drawText("Price", { x: col.price, y, size: 10, font: bold, color: black });
-  page.drawText("Total", { x: col.total, y, size: 10, font: bold, color: black });
-  y -= 6;
-  page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 1, color: black });
-  y -= 16;
-
-  for (const item of items) {
-    page.drawText(productNames.get(item.productId) ?? item.productId, { x: col.product, y, size: 9, font, color: black });
-    page.drawText(unitNames.get(item.unitId) ?? String(item.unitId), { x: col.unit, y, size: 9, font, color: black });
-    page.drawText(item.quantity, { x: col.qty, y, size: 9, font, color: black });
-    page.drawText(item.unitPrice, { x: col.price, y, size: 9, font, color: black });
-    page.drawText(item.lineTotal, { x: col.total, y, size: 9, font, color: black });
+    page.drawText(`Against invoice: ${invoice.originalInvoiceId}`, { x: left, y, size: 9, font, color: muted });
     y -= 16;
   }
 
-  y -= 8;
-  page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 1, color: black });
+  y -= 6;
+  const col = { product: left + 8, unit: 280, qty: 340, price: 410, total: right - 8 };
+  const headerY = y;
+  page.drawRectangle({ x: left, y: headerY - 6, width: right - left, height: 22, color: accentSoft });
+  page.drawText("Product", { x: col.product, y, size: 9, font: bold, color: accent });
+  page.drawText("Unit", { x: col.unit, y, size: 9, font: bold, color: accent });
+  page.drawText("Qty", { x: col.qty, y, size: 9, font: bold, color: accent });
+  page.drawText("Price", { x: col.price, y, size: 9, font: bold, color: accent });
+  page.drawText("Total", { x: col.total - font.widthOfTextAtSize("Total", 9), y, size: 9, font: bold, color: accent });
+  y -= 22;
+
+  items.forEach((item, i) => {
+    if (i % 2 === 1) {
+      page.drawRectangle({ x: left, y: y - 4, width: right - left, height: 18, color: zebra });
+    }
+    const name = productNames.get(item.productId) ?? item.productId;
+    page.drawText(name.length > 38 ? name.slice(0, 37) + "…" : name, { x: col.product, y, size: 9, font, color: ink });
+    page.drawText(unitNames.get(item.unitId) ?? String(item.unitId), { x: col.unit, y, size: 9, font, color: muted });
+    const qtyText = item.quantity;
+    page.drawText(qtyText, { x: col.qty, y, size: 9, font, color: muted });
+    const priceText = Number(item.unitPrice).toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    page.drawText(priceText, { x: col.price, y, size: 9, font, color: muted });
+    const totalText = Number(item.lineTotal).toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    page.drawText(totalText, { x: col.total - font.widthOfTextAtSize(totalText, 9), y, size: 9, font: bold, color: ink });
+    y -= 18;
+  });
+
+  y -= 6;
+  page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 1, color: hairline });
   y -= 20;
 
-  const summaryX = 410;
-  page.drawText("Subtotal", { x: summaryX, y, size: 10, font, color: gray });
-  page.drawText(invoice.subtotal, { x: col.total, y, size: 10, font, color: black });
-  y -= 14;
-  page.drawText("Discount", { x: summaryX, y, size: 10, font, color: gray });
-  page.drawText(invoice.discount ?? "0.00", { x: col.total, y, size: 10, font, color: black });
-  y -= 14;
-  for (const charge of invoice.otherCharges ?? []) {
-    page.drawText(charge.label, { x: summaryX, y, size: 10, font, color: gray });
-    page.drawText(charge.amount.toFixed(2), { x: col.total, y, size: 10, font, color: black });
-    y -= 14;
+  const summaryLabelX = 380;
+  function summaryRow(label: string, value: string, size = 10, color = muted, valueColor = ink) {
+    page.drawText(label, { x: summaryLabelX, y, size, font, color });
+    const w = font.widthOfTextAtSize(value, size);
+    page.drawText(value, { x: right - w, y, size, font: size > 10 ? bold : font, color: valueColor });
+    y -= size + 8;
   }
-  y -= 2;
-  page.drawText("Total", { x: summaryX, y, size: 12, font: bold, color: black });
-  page.drawText(invoice.totalAmount, { x: col.total, y, size: 12, font: bold, color: black });
+
+  summaryRow("Subtotal", Number(invoice.subtotal).toLocaleString("en-PK", { minimumFractionDigits: 2 }));
+  if (Number(invoice.discount) > 0) {
+    summaryRow("Discount", "−" + Number(invoice.discount).toLocaleString("en-PK", { minimumFractionDigits: 2 }));
+  }
+  for (const charge of invoice.otherCharges ?? []) {
+    summaryRow(charge.label, Number(charge.amount).toLocaleString("en-PK", { minimumFractionDigits: 2 }));
+  }
+
+  y -= 4;
+  // Label stacked above the value, not beside it — a side-by-side line only works up to
+  // however many digits happen to fit before colliding with the label; stacked has no
+  // such ceiling, so a very large total never runs into "TOTAL".
+  const boxX = summaryLabelX - 14;
+  const boxWidth = right - boxX;
+  const boxHeight = 40;
+  const boxTop = y + 10;
+  const boxBottom = boxTop - boxHeight;
+  page.drawRectangle({ x: boxX, y: boxBottom, width: boxWidth, height: boxHeight, color: accentSoft });
+  page.drawRectangle({ x: boxX, y: boxBottom, width: 4, height: boxHeight, color: accent });
+  page.drawText("TOTAL", { x: boxX + 14, y: boxTop - 14, size: 9, font: bold, color: accent });
+  const totalText = Number(invoice.totalAmount).toLocaleString("en-PK", { minimumFractionDigits: 2 });
+  const totalWidth = bold.widthOfTextAtSize(totalText, 16);
+  page.drawText(totalText, { x: right - 12 - totalWidth, y: boxBottom + 12, size: 16, font: bold, color: ink });
+  y = boxBottom - 20;
+
+  page.drawText("Thank you for your business!", {
+    x: left,
+    y: 60,
+    size: 9,
+    font: italic,
+    color: muted,
+  });
 
   return pdfDoc.save();
 }

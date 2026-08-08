@@ -1,20 +1,22 @@
 import { useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Tag, X } from "lucide-react";
 import { formatCurrency } from "../lib/format";
 
 export type InvoiceCharge = { label: string; amount: number };
 
 const QUICK_PRESETS = ["Loader", "Rolly"];
 
-/** Named add-on charges (loader/rolly labor, freight, etc.) added on top of the item
- * subtotal — used on both the Sale and Purchase invoice screens. Committing a charge
- * (and so getting it into the bill's total) doesn't require finding and clicking the
- * small "+" button: pressing Enter in either field, or simply leaving the amount field
- * once both a label and a valid amount are present, adds it automatically. The "+"
- * button still works too, for anyone who prefers to click it. */
+/** Named add-on charges (loader/rolly labor, freight, or anything else the shop wants to
+ * bill at their own discretion) — added on top of the item subtotal, used on both the
+ * Sale and Purchase invoice screens. Fully custom: the label is free text, the presets
+ * below are just a shortcut for the two most common ones. There's no separate "add"
+ * button to find and click — press Enter in either field, or just move on to the next
+ * field/click elsewhere once both a label and a valid amount are filled in, and it's
+ * added to the bill immediately. */
 export function ChargesEditor({ charges, onChange }: { charges: InvoiceCharge[]; onChange: (charges: InvoiceCharge[]) => void }) {
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
+  const labelRef = useRef<HTMLInputElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
 
   function add() {
@@ -24,6 +26,7 @@ export function ChargesEditor({ charges, onChange }: { charges: InvoiceCharge[];
     onChange([...charges, { label: finalLabel, amount: finalAmount }]);
     setLabel("");
     setAmount("");
+    labelRef.current?.focus();
   }
 
   function selectPreset(preset: string) {
@@ -33,43 +36,68 @@ export function ChargesEditor({ charges, onChange }: { charges: InvoiceCharge[];
   }
 
   return (
-    <div className="space-y-2">
-      {charges.map((c, i) => (
-        <div key={i} className="flex items-center justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">{c.label}</span>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-900 dark:text-gray-100">{formatCurrency(c.amount)}</span>
-            <button
-              type="button"
-              onClick={() => onChange(charges.filter((_, j) => j !== i))}
-              aria-label={`Remove ${c.label}`}
-              className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-            >
-              <X size={14} />
-            </button>
-          </div>
+    <div className="space-y-2.5">
+      {charges.length > 0 && (
+        <div className="space-y-1.5 rounded-lg border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-800 dark:bg-gray-800/30">
+          {charges.map((c, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 text-sm">
+              <span className="flex min-w-0 items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                <Tag size={12} className="shrink-0 text-amber-500" />
+                <span className="truncate">{c.label}</span>
+              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(c.amount)}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange(charges.filter((_, j) => j !== i))}
+                  aria-label={`Remove ${c.label}`}
+                  className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_PRESETS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => selectPreset(p)}
+            className="rounded-full border border-gray-200 px-2.5 py-0.5 text-xs text-gray-500 hover:border-amber-300 hover:text-amber-700 dark:border-gray-700 dark:text-gray-400 dark:hover:border-amber-700 dark:hover:text-amber-300"
+          >
+            + {p}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setTimeout(() => labelRef.current?.focus(), 0)}
+          className="rounded-full border border-dashed border-gray-300 px-2.5 py-0.5 text-xs text-gray-500 hover:border-amber-300 hover:text-amber-700 dark:border-gray-600 dark:text-gray-400 dark:hover:border-amber-700 dark:hover:text-amber-300"
+        >
+          + Custom charge
+        </button>
+      </div>
 
       <div className="flex gap-1.5">
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder="e.g. Loader"
-          list="charge-label-presets"
-          className="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-        />
-        <datalist id="charge-label-presets">
-          {QUICK_PRESETS.map((p) => (
-            <option key={p} value={p} />
-          ))}
-        </datalist>
+        <div className="relative min-w-0 flex-1">
+          <Tag size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            ref={labelRef}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                add();
+              }
+            }}
+            placeholder="Charge name"
+            className="w-full rounded-md border border-gray-300 py-1.5 pl-7 pr-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+          />
+        </div>
         <input
           ref={amountRef}
           type="number"
@@ -83,35 +111,12 @@ export function ChargesEditor({ charges, onChange }: { charges: InvoiceCharge[];
               add();
             }
           }}
-          onBlur={() => add()}
+          onBlur={add}
           placeholder="Amount"
           className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
         />
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => add()}
-          disabled={!label.trim() || !(Number(amount) > 0)}
-          className="flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
-          <Plus size={14} />
-        </button>
       </div>
-
-      {charges.length === 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {QUICK_PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => selectPreset(p)}
-              className="rounded-full border border-gray-200 px-2.5 py-0.5 text-xs text-gray-500 hover:border-blue-300 hover:text-blue-700 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-700 dark:hover:text-blue-300"
-            >
-              + {p}
-            </button>
-          ))}
-        </div>
-      )}
+      <p className="text-[11px] text-gray-400 dark:text-gray-500">Type a name and amount, then press Enter — it's added to the bill right away.</p>
     </div>
   );
 }
